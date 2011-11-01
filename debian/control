@@ -1,0 +1,18 @@
+Source: pywwetha
+Section: httpd
+Priority: optional
+Maintainer: Hamatoma <siduction@hm.f-r-e-i.de>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.2
+Homepage: siduction.org
+Vcs-Git: git://git.siduction.org/packages/siduction-repository/pywwetha
+Vcs-Browser: http://git.siduction.org/?p=packages/siduction-repository/pywwetha.git;a=summary
+
+Package: pywwetha
+Architecture: all
+Depends: ${misc:Depends}
+Description: A simple webserver for static html and CGI.
+ pywwetha is a very small webserver.
+ It can issue static files and CGI created pages.
+ The main usage: Building dynamic pages for life CDs or local usage.
+ 

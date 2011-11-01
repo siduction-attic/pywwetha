@@ -1,0 +1,15 @@
+#! /bin/bash
+cmd=start
+if [ -n "$1" ] ; then
+	case "$1" in 
+		start|stop|status|check-config)
+		cmd=$1
+		;;
+	*)
+		echo "unknown command. use start stop status check-config."
+		exit 1
+		;;
+	esac
+fi
+set -x
+sudo /etc/init.d/pywwetha $cmd

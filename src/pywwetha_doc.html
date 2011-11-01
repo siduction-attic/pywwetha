@@ -1,0 +1,93 @@
+<html>
+<body>
+<h1>The Webserver pywwetha</h1>
+<h2>Introduction</h2>
+<p>pywwetha is a webserver with a small footprint.</p>
+<h2>Features</h2>
+<ul>
+<li>Serves static html and CGI.</li>
+<li>Runs as daemon</li>
+<li>Tests configuration file</li>
+<li>Any user can start/stop the service</li>
+</ul>
+<h2>Installation</h2>
+<pre>
+# Get the debian packet
+dpkg -i pywwetha*.deb
+</pre>
+<h3>The Steps of the Installation</h3>
+<pre>
+# copy files to /etc/pywwetha/, /etc/init.d/ and /usr/share/pywwetha
+insserv pywwetha
+/etc/init.d/pywwetha check-config
+/etc/init.d/pywwetha start
+/etc/init.d/pywwetha status
+</pre>
+
+<h2>Configuration</h2>
+<p>Each file with the pattern /etc/pywwetha/*.conf will be treated 
+as a configuration file.
+</p>
+<pre>
+# /etc/pywwetha/pywwetha.conf:
+#
+# Port where pywwetha is listen
+port=8086
+# pywwetha is running under this user:
+user=www-data
+# pywwetha is running under this group:
+group=www-data
+</pre>
+<pre>
+# /etc/pywwetha/localhost.conf:
+#
+# default virtual host is localhost:
+# Definitions of localhost are the default definitions for the other vhosts.
+
+# The path where the documents are lying
+localhost:documentRoot=/var/www
+
+# The program to build dynamic content
+localhost:cgiProgram=/usr/bin/php-cgi
+
+# Arguments for the cgi program: separated by |
+# Possible placeholder: ${file} (the input for the cgi program)
+localhost:cgiArgs=${file}|-C|-c|/etc/wywetha/php.ini
+
+# File extensions of the CGI scripts, separated by |
+localhost:cgiExt=php|php5
+</pre>
+<h2>Virtual Hosts</h2>
+<p>pywwetha supports virtual hosts:<br/>
+Each virtual host has its own properties: documentRoot cgiProgram ...<br/>
+</p>
+<p>Note: Don't forget to define the virtual host in the DNS, e.g. in /etc/host.</p>
+<h2>Program Options</h2>
+<table>
+<tr><td>--daemon</td>
+<td>Start as daemon process.</td>
+</tr> 
+<tr><td>--check-config</td>
+<td>Tests and shows the configuration data.</td>
+</tr> 
+<tr><td>--verbose</td>
+<td>Shows additional info.</td>
+</tr> 
+</table>
+<h2>Auxiliary files</h2>
+<ul>
+<li>/etc/init.d/pywwetha  starts/stops/queries the service.</li>
+<li>/etc/sudoers/pywwetha allows the usage of the above script by any user.</li> 
+<li>pywwetha-control is a script for start/stop/query the service. Can be used by any user.</li>
+</ul>
+
+<h2>The Project's Name</h2>
+<ul> 
+<li><b>P</b>i<b>wwetha</b> is a native american tribe (in its own language Tiwa). See <a href="http://www.indianer-wiki.org/Picuris">here</a>.</li>
+<li>The project is written in p<b>y</b>thon.</li>
+<li>It makes similar things like the well known <b>apache</b> does.</li> 
+<li>pywwetha is not known by some search engines at its birth.</li>
+</ul>
+
+</body>
+</html>

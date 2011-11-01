@@ -1,0 +1,82 @@
+#!/bin/sh
+#
+### BEGIN INIT INFO
+# Provides:       pywwetha 
+# Required-Start: localfs
+# Required-Stop:  localfs
+# Default-Start:  3 4 5
+# Default-Stop:   0 1 6
+# Description:    A simple webserver for static html and CGI
+### END INIT INFO
+PATH=$PATH:/bin:/sbin:/usr/sbin
+
+VERBOSE=-v
+BIN=/usr/share/pywwetha/pywwetha.py
+CONFIG=/etc/pywwetha/pywwetha.conf
+
+start() {
+  pid=$(getPid)
+  if [ -n "$pid" ] ; then
+  	echo "pywwetha is running yet: .$pid."
+  else
+	  user=$(perl -ne 'print $1 if /^user\s*=\s*(\S+)/;' $CONFIG)
+	  test -n "$user" && user="--chuid $user"
+	  group=$(perl -ne 'print $1 if /^group\s*=\s*(\S+)/;' $CONFIG)
+	  test -n "$group" && group="--group $group"
+	  start-stop-daemon $VERBOSE --background $group $user --exec $BIN --start -- --daemon
+  fi
+}
+
+stop() {
+  pid=$(getPid)
+  if [ -z "$pid" ] ; then
+  	echo "not running: pywwetha.py"
+  else
+	  kill -TERM $pid
+	  count=10
+	  while [ $count ">" 0 ] ; do
+	    pid=$(getPid)
+	    test -z "$pid" && break
+		count=$(expr $count - 1)
+	  done
+	  pid=$(getPid)
+	  test -n "$pid" && kill -9 $pid
+  fi
+ }
+
+getPid() {
+	pid=$(ps aux | perl -ne 'print $1 if /^\S+\s+(\d+).*python.*pywwetha\.py/')
+	echo $pid
+}
+
+
+case "$1" in
+start)
+    start $pid
+    ;;
+stop)
+    stop $pid
+    ;;
+restart)
+    stop $pid
+    start ""
+    ;;
+status)
+    echo -n "Checking for pywwetha webserver"
+    pid=$(getPid)
+    if [ -n "$pid" ]; then
+        echo " ...running"
+    else
+        echo " ...not running"
+    fi
+    ;;
+check-config)
+	$BIN --check-config
+	;;
+*)
+    echo "Usage: $0 {start|stop|restart|status|check-config}"
+    exit 1
+    ;;
+esac
+
+exit 0
