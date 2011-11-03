@@ -22,6 +22,9 @@ def say(msg):
     global config
     if config != None and config._verbose:
         print msg
+    if config != None and config._doLog:
+        log(msg)
+        
 def sayError(msg):
     '''Prints an error message if possible.
     @param msg: the message to print
@@ -29,6 +32,15 @@ def sayError(msg):
     global config
     if config != None and not config._daemon:
         print '+++ ', msg
+    if config._doLog:
+        log('+++ ' + msg)
+
+def log(msg):
+    global config
+    if config._logFile == None:
+        config._logFile = open('/tmp/pywweth.log', 'a')
+    config._logFile.write(msg + "\n")
+    config._logFile.flush()
         
 class Host:
     '''Holds the data of a virtual host
@@ -48,8 +60,11 @@ class Config:
         '''
         self._verbose = False
         self._daemon = False
+        self._logFile = None
+        self._translatePathInfo = None
         self._port = 80
         self._hosts = dict()
+        self._doLog = True
         self._currentHost = None
         self._hosts['localhost'] = Host('localhost')
         configfiles = glob.glob('/etc/pywwetha/*.conf')
@@ -70,7 +85,6 @@ class Config:
         }
         self._fileMatcher = re.compile(r"[.](css|html|htm|txt|png|jpg|jpeg|gif|svg|ico|js)$", re.I)
         self._server = dict()
-        self._wrongHeaderMatcher = re.compile(r"(\s*<html>\s+<body>\s*)")
         self._environ = os.environ
         os.environ.clear()
         
@@ -206,7 +220,8 @@ class Config:
             self._server['QUERY_STRING'] = query 
             self._server['REQUEST_URI'] = path
             self._server['SCRIPT_NAME'] = matcher.group(1)
-            self._server['PATH_INFO'] = matcher.group(4)
+            pathInfo = matcher.group(4)
+            self._server['PATH_INFO'] = pathInfo
             
     def setVirtualHost(self, host):
         '''Sets the current virtual host.
@@ -214,13 +229,28 @@ class Config:
         '''
         hostinfo = re.split(':', host)
         hostname = hostinfo[0]
-        self._currentPort = hostinfo[1]
+        self._currentPort = hostinfo[1] if len(hostinfo) > 1 else str(self._port)
         if len(self._currentPort) == 0:
             self._currentPort = 80
         if not hostname in self._hosts:
             hostname = 'localhost'
         self._currentHost = self._hosts[hostname]
-         
+        
+    def getHeader(self, server, key):
+        '''Returns a value of the headers.
+        The key will be compared case insensitive.
+        @param server: the server with the headers
+        @param key:    the key to search for
+        @return: None key not found. Otherwise: the value
+        '''
+        rc = None
+        key = key.lower()
+        for key1 in server.headers.dict.iterkeys():
+            if key1.lower() == key:
+                rc = server.headers.dict[key1]
+                break
+        return rc
+    
     def runCgi(self, server):
         '''Runs the cgi program and writes the result.
         @param server: the server
@@ -229,17 +259,26 @@ class Config:
         self._server['HTTP_HOST'] = self._currentHost._name + ':' + self._currentPort
         self._server['REMOTE_ADDR'] = server.client_address[0]
         self._server['REMOTE_PORT'] = server.client_address[1]
-        self._server['HTTP_USER_AGENT'] = server.headers.dict['user-agent']
-        self._server['HTTP_ACCEPT_LANGUAGE'] = server.headers.dict['accept-language']
+        value = self.getHeader(server, 'user-agent')
+        if value != None:
+            self._server['HTTP_USER_AGENT'] = value
+        value = self.getHeader(server, 'accept-language')
+        if value != None:
+            self._server['HTTP_ACCEPT_LANGUAGE'] = value
         self._server['SERVER_ADDR'] = '127.0.0.1'
+        self._server['SERVER_NAME'] = self._currentHost._name
         self._server['SERVER_PORT'] = self._currentPort
         self._server['DOCUMENT_ROOT'] = docRoot
         pathInfo = self._server['PATH_INFO'] if 'PATH_INFO' in self._server else ""
+        if pathInfo == None:
+            pathInfo = ""
         self._server['PATH_TRANSLATED'] = docRoot + pathInfo
         for key, value in self._server.iteritems():
             if value == None:
                 value = '' 
-            os.environ[key] = str(value) 
+            os.environ[key] = str(value)
+            if self._verbose: 
+                log(key + "=" + str(value))
         filename = self._server['SCRIPT_FILENAME']
         say('Script: ' + filename)
         args = self.getItemOfHost('cgiArgs')
@@ -252,11 +291,29 @@ class Config:
         process = subprocess.Popen(args, stdout=subprocess.PIPE)
         output = process.communicate()
         content = output[0]
-        matcher = self._wrongHeaderMatcher.match(content)
-        if matcher:
-            length = len(matcher.group(1))
-            content = content[length:]
-        server.wfile.write(content)
+        
+            
+        if content.find('Status:') != 0:
+            server.send_response(200)
+            if content.find('Content-type: ') < 0:
+                mimeType = 'text/html'
+                server.send_header('Content-type', mimeType)
+                server.end_headers()
+            server.wfile.write(content)
+            say('Content: ' + content[0:80] + '...')
+        else:
+            lines = content.split("\n")
+            cols = lines[0].split(" ")
+            status = int(cols[1])
+            server.send_response(status)
+            for ii in xrange(len(lines)):
+                if ii > 0:
+                    line = lines[ii].rstrip()
+                    index = line.find(': ')
+                    if index > 0:
+                        say(line)
+                        server.send_header(line[0:index], line[index+1:])
+            server.end_headers()
             
     
 class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
@@ -274,8 +331,6 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         try:
             if config.isCgi(self.path):
                 config.splitUrl(self.path)
-                self.send_response(200)
-                self.send_header('Content-type', 'text/html')
                 config.runCgi(self)
             else:
                 mimeType = config.getMimeType(self.path)
@@ -313,6 +368,8 @@ def main():
             config._verbose = False
         elif sys.argv[ii] == '--verbose':
             config._verbose = True
+        elif sys.argv[ii] == '--log':
+            config._doLog = True
         elif sys.argv[ii] == '--check-config':
             config._verbose = True
             # read again with error reporting:
@@ -331,4 +388,5 @@ def main():
         server.socket.close()
 
 if __name__ == '__main__':
+    #SimpleHTTPServer.test(WebServer, BaseHTTPServer)
     main()
