@@ -2,7 +2,7 @@
 cmd=start
 if [ -n "$1" ] ; then
 	case "$1" in 
-		start|stop|status|check-config)
+		start|stop|restart|status|check-config)
 		cmd=$1
 		;;
 	*)
@@ -11,5 +11,5 @@ if [ -n "$1" ] ; then
 		;;
 	esac
 fi
-set -x
+#set -x
 sudo /etc/init.d/pywwetha $cmd
