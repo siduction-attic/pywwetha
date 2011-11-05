@@ -38,7 +38,7 @@ def sayError(msg):
 def log(msg):
     global config
     if config._logFile == None:
-        config._logFile = open('/tmp/pywweth.log', 'a')
+        config._logFile = open('/tmp/pywwetha.log', 'a')
     config._logFile.write(msg + "\n")
     config._logFile.flush()
         
@@ -64,7 +64,7 @@ class Config:
         self._translatePathInfo = None
         self._port = 80
         self._hosts = dict()
-        self._doLog = True
+        self._doLog = False
         self._currentHost = None
         self._hosts['localhost'] = Host('localhost')
         configfiles = glob.glob('/etc/pywwetha/*.conf')
@@ -388,5 +388,4 @@ def main():
         server.socket.close()
 
 if __name__ == '__main__':
-    #SimpleHTTPServer.test(WebServer, BaseHTTPServer)
     main()

@@ -23,7 +23,8 @@ start() {
 	  test -n "$user" && user="--chuid $user"
 	  group=$(perl -ne 'print $1 if /^group\s*=\s*(\S+)/;' $CONFIG)
 	  test -n "$group" && group="--group $group"
-	  start-stop-daemon $VERBOSE --background $group $user --exec $BIN --start -- --daemon
+	  log=$(perl -ne 'print "--log" if /^daemon-log\s*=\s*(true|1)/i;' $CONFIG)
+	  start-stop-daemon $VERBOSE --background $group $user --exec $BIN --start -- --daemon $log
   fi
 }
 

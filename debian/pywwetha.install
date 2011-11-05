@@ -2,5 +2,5 @@ src/*			usr/share/pywwetha
 etc/pywwetha	etc
 etc/init.d		etc
 etc/sudoers.d	etc
-#bin/*			usr/local/bin
+/usr/bin		usr
 

@@ -28,6 +28,7 @@ insserv pywwetha
 <p>Each file with the pattern /etc/pywwetha/*.conf will be treated 
 as a configuration file.
 </p>
+<hr>
 <pre>
 # /etc/pywwetha/pywwetha.conf:
 #
@@ -37,7 +38,10 @@ port=8086
 user=www-data
 # pywwetha is running under this group:
 group=www-data
+# Logging if pywwetha is running as daemon:
+daemon-log=false
 </pre>
+<hr>
 <pre>
 # /etc/pywwetha/localhost.conf:
 #
@@ -73,6 +77,9 @@ Each virtual host has its own properties: documentRoot cgiProgram ...<br/>
 <tr><td>--verbose</td>
 <td>Shows additional info.</td>
 </tr> 
+<tr><td>--log</td>
+<td>Writes the requests to /tmp/pywwetha.log.</td>
+</tr> 
 </table>
 <h2>Auxiliary files</h2>
 <ul>
@@ -85,7 +92,7 @@ Each virtual host has its own properties: documentRoot cgiProgram ...<br/>
 <ul> 
 <li><b>P</b>i<b>wwetha</b> is a native american tribe (in its own language Tiwa). See <a href="http://www.indianer-wiki.org/Picuris">here</a>.</li>
 <li>The project is written in p<b>y</b>thon.</li>
-<li>It makes similar things like the well known <b>apache</b> does.</li> 
+<li>It makes similar things which the well known <b>apache</b> does.</li> 
 <li>pywwetha is not known by some search engines at its birth.</li>
 </ul>
 
