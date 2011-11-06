@@ -17,7 +17,7 @@ CONFIG=/etc/pywwetha/pywwetha.conf
 start() {
   pid=$(getPid)
   if [ -n "$pid" ] ; then
-  	echo "pywwetha is running yet: .$pid."
+  	echo "pywwetha is still running: .$pid."
   else
 	  user=$(perl -ne 'print $1 if /^user\s*=\s*(\S+)/;' $CONFIG)
 	  test -n "$user" && user="--chuid $user"
