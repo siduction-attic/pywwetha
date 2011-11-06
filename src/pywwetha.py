@@ -256,6 +256,8 @@ class Config:
         @param server: the server
         '''
         docRoot = self.getItemOfHost('documentRoot')
+        # Necessary for running php-cgi:
+        self._server['REDIRECT_STATUS'] = '1'
         self._server['HTTP_HOST'] = self._currentHost._name + ':' + self._currentPort
         self._server['REMOTE_ADDR'] = server.client_address[0]
         self._server['REMOTE_PORT'] = server.client_address[1]
@@ -288,14 +290,18 @@ class Config:
                 args[ii] = filename 
         args.insert(0, self.getItemOfHost('cgiProgram'))
         
-        process = subprocess.Popen(args, stdout=subprocess.PIPE)
+        process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output = process.communicate()
         content = output[0]
-        
-            
+        err = output[1]
+        if err != None and len(err) > 0:
+            say('Error(s) found')
+            say(str(err)[0:160])
+                
         if content.find('Status:') != 0:
             server.send_response(200)
             if content.find('Content-type: ') < 0:
+                say("Content type not found. Generating...")
                 mimeType = 'text/html'
                 server.send_header('Content-type', mimeType)
                 server.end_headers()
