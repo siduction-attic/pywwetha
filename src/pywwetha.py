@@ -15,7 +15,7 @@ Created on 28.10.2011
 
 import os, sys, re, subprocess, BaseHTTPServer, glob
 
-VERSION = '0.1-2'
+VERSION = '0.1-3'
 VERSION_EXTENDED = VERSION + ' (2011.11.10)' 
 def say(msg):
     '''Prints a message if allowed.
@@ -317,14 +317,14 @@ class Config:
             output = process.communicate()
             content = output[0]
             err = output[1]
-            if self._debug or (err != None and len(err) > 0):
+            if self._debug and err != None and len(err) > 0:
                 say('Error(s) found')
                 err = str(err)
                 say(err[0:160])
                 ix = content.find('</body>')
                 if ix < 0:
                     content = self.errorMesssage(
-                        'cgi program %s find errors:' % prog, str(err))
+                        "cgi program %s find errors:\n %s" % (prog, str(err)))
                 else:
                     content = (content[0:ix] + "<pre>CGI-ERRORS:\n"
                         + err + "\n</pre>\n" + content[ix+7:])
