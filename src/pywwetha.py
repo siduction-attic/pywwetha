@@ -15,6 +15,8 @@ Created on 28.10.2011
 
 import os, sys, re, subprocess, BaseHTTPServer, glob
 
+VERSION = '0.1-2'
+VERSION_EXTENDED = VERSION + ' (2011.11.10)' 
 def say(msg):
     '''Prints a message if allowed.
     @param msg: the message to print
@@ -32,7 +34,7 @@ def sayError(msg):
     global config
     if config != None and not config._daemon:
         print '+++ ', msg
-    if config._doLog:
+    if config != None and config._doLog:
         log('+++ ' + msg)
 
 def log(msg):
@@ -58,6 +60,7 @@ class Config:
     def __init__(self):
         '''Constructor.
         '''
+        self._debug = False
         self._verbose = False
         self._daemon = False
         self._logFile = None
@@ -156,6 +159,8 @@ class Config:
                         elif var == 'user' or var == 'group':
                             # Not used by the server:
                             say('%s=%s' % (var, value))
+                        elif var == 'debug':
+                            self._debug = re.match(r'[tT1]', value)
                         else:
                             sayError("%s-%d: unknown item: " % (name, lineNo, var))
             handle.close()
@@ -199,6 +204,20 @@ class Config:
         rc = matcher != None
         return rc
     
+    def errorMesssage(self, msg):
+        '''Builds a html page with an error message.
+        @param msg    error message
+        @return: a valid html page with the error message
+        '''
+        rc = '''
+<html>
+<body>
+</body>
+<h1>Webserver Problem (pywwetha)</h1>
+<p>%s</p>
+</html>
+        ''' % msg
+        return rc
     def splitUrl(self, path):
         '''Splits the URL into parts.
         The parts will be stored in <code>self._server</code>.
@@ -287,16 +306,29 @@ class Config:
         args = re.split(r'\|', args)
         for ii in xrange(len(args)):
             if args[ii] == '${file}':
-                args[ii] = filename 
-        args.insert(0, self.getItemOfHost('cgiProgram'))
-        
-        process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output = process.communicate()
-        content = output[0]
-        err = output[1]
-        if err != None and len(err) > 0:
-            say('Error(s) found')
-            say(str(err)[0:160])
+                args[ii] = filename
+        prog = self.getItemOfHost('cgiProgram')
+        if not os.path.exists(prog):
+            content = self.errorMesssage('cgi program not found: ' + prog)
+        else:
+            args.insert(0, prog)
+            
+            process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            output = process.communicate()
+            content = output[0]
+            err = output[1]
+            if self._debug or (err != None and len(err) > 0):
+                say('Error(s) found')
+                err = str(err)
+                say(err[0:160])
+                ix = content.find('</body>')
+                if ix < 0:
+                    content = self.errorMesssage(
+                        'cgi program %s find errors:' % prog, str(err))
+                else:
+                    content = (content[0:ix] + "<pre>CGI-ERRORS:\n"
+                        + err + "\n</pre>\n" + content[ix+7:])
+                    
                 
         if content.find('Status:') != 0:
             server.send_response(200)
@@ -374,6 +406,8 @@ def main():
             config._verbose = False
         elif sys.argv[ii] == '--verbose':
             config._verbose = True
+        elif sys.argv[ii] == '--debug':
+            config._debug = True
         elif sys.argv[ii] == '--log':
             config._doLog = True
         elif sys.argv[ii] == '--check-config':
@@ -381,8 +415,37 @@ def main():
             # read again with error reporting:
             config = Config()
             return
-            
-             
+        elif sys.argv[ii] == '--version':
+            print VERSION_EXTENDED
+            return
+        elif sys.argv[ii] == '--version-short':
+            print VERSION
+            return
+        elif sys.argv[ii] == '--help':
+            print '''
+pywwetha %s
+A simple webserver for static html and CGI.
+
+Usage: pywwetha.py <opts>
+<opt>:
+--verbose    
+    Issues some messages
+--log
+    Writes messages to /tmp/pywwetha.log
+--debug
+    Insert php-cgi warnings and errors into the html pages
+--daemon
+    Runs as daemon
+--check-config
+    Checks the configuration and exits
+--version
+    Issues the version and exits
+--version-numeric
+    Issues the version as a short value: %s
+--help
+    Issues this info
+            ''' % (VERSION_EXTENDED, VERSION)
+            return
     try:
         server = BaseHTTPServer.HTTPServer(('', config._port), WebServer)
         if not config._daemon:

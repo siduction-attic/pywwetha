@@ -1,5 +1,8 @@
-pywwetha (0.1-1) unstable; urgency=low
+pywwetha (0.1-2) unstable; urgency=low
 
   * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+  * New options: --help --debug --version --version-short
+  * New configuration parameter: debug=true: If set php-cgi warnings and errors will be put into the issued html page.
+  * Fix: Crashs if logging is on and an error occurs in the configuration
 
- -- Hamatoma <siduction@hm.f-r-e-i.de>  Tue, 01 Nov 2011 08:18:23 +0100
+ -- Hamatoma <siduction@hm.f-r-e-i.de>  Thu, 10 Nov 2011 22:00:22 +0100
