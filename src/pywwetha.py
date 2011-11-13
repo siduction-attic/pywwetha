@@ -15,8 +15,8 @@ Created on 28.10.2011
 
 import os, sys, re, subprocess, BaseHTTPServer, glob
 
-VERSION = '0.1-3'
-VERSION_EXTENDED = VERSION + ' (2011.11.10)' 
+VERSION = '0.2-1'
+VERSION_EXTENDED = VERSION + ' (2011.11.13)' 
 def say(msg):
     '''Prints a message if allowed.
     @param msg: the message to print
@@ -290,6 +290,13 @@ class Config:
         self._server['SERVER_NAME'] = self._currentHost._name
         self._server['SERVER_PORT'] = self._currentPort
         self._server['DOCUMENT_ROOT'] = docRoot
+        if self._debug:
+            flags = os.getenv('TRACE_FLAGS')
+            if flags == None:
+                flags = '*'
+            self._server['TRACE_FLAGS'] = flags
+            say('TraceFlags: ' + flags)
+            
         pathInfo = self._server['PATH_INFO'] if 'PATH_INFO' in self._server else ""
         if pathInfo == None:
             pathInfo = ""
