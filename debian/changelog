@@ -1,22 +1,28 @@
+pywwetha (0.3-1) unstable; urgency=low
+
+  * Removes some lintian errors and warnings
+
+ -- J. Hamatoma <hamatoma@gmx.de>  Tue, 22 Nov 2011 21:54:21 +0100
+
 pywwetha (0.2-1) unstable; urgency=low
 
   * In debug mode: the trace flags will be set (for the php code)
   * Configuration: the debug flag is set
 
- -- Hamatoma <siduction@hm.f-r-e-i.de>  Sun, 13 Nov 2011 17:12:14 +0100
+ -- J. Hamatoma <hamatoma@gmx.de>  Sun, 13 Nov 2011 17:12:14 +0100
 
 pywwetha (0.1-3) unstable; urgency=low
 
   * Fix: Crashes in debug mode: wrong formatting
   * Fix: Debug mode: ignores content if no php errors or warnings exist
 
- -- Hamatoma <siduction@hm.f-r-e-i.de>  Fri, 11 Nov 2011 00:02:14 +0100
+ -- J. Hamatoma <hamatoma@gmx.de>  Fri, 11 Nov 2011 00:02:14 +0100
 
 pywwetha (0.1-2) unstable; urgency=low
 
-  * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+  * Initial release
   * New options: --help --debug --version --version-short
   * New configuration parameter: debug=true: If set php-cgi warnings and errors will be put into the issued html page.
   * Fix: Crashs if logging is on and an error occurs in the configuration
 
- -- Hamatoma <siduction@hm.f-r-e-i.de>  Thu, 10 Nov 2011 22:00:22 +0100
+ -- J. Hamatoma <hamatoma@gmx.de>  Thu, 10 Nov 2011 22:00:22 +0100
