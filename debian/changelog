@@ -1,3 +1,10 @@
+pywwetha (0.3-1.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * FTBFS, init.d in install ist über, ausdokumentiert
+
+ -- Alf Gaida <info@g-com.eu>  Thu, 24 Nov 2011 02:10:51 +0100
+
 pywwetha (0.3-1) unstable; urgency=low
 
   * Removes some lintian errors and warnings
