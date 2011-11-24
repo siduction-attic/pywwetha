@@ -1,6 +1,5 @@
 src/*			usr/share/pywwetha
 etc/pywwetha	etc
-#etc/init.d		etc
 etc/sudoers.d	etc
 /usr/bin		usr
 

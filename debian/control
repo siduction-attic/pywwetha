@@ -12,7 +12,8 @@ Package: pywwetha
 Architecture: all
 Depends: ${misc:Depends},
 	python (>=2.0),
-	python-support (>= 0.90.0)
+	python-support (>= 0.90.0),
+	sudo (>=1.0)
 Description: simple webserver for static html and CGI.
  This webserver can issue static files and CGI created pages.
  Main usage: Building dynamic pages for life CDs or local usage.
