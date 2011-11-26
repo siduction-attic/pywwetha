@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 ### BEGIN INIT INFO
 # Provides:       pywwetha 
@@ -14,7 +14,24 @@ VERBOSE=-v
 BIN=/usr/share/pywwetha/pywwetha.py
 CONFIG=/etc/pywwetha/pywwetha.conf
 
-start() {
+function addHost(){
+	VHOST=$1
+	F=/etc/hosts
+	for port in {86..255} ; do
+		if ! grep -q "^127[.]0[.]0[.]$port[^0-9]" $F ; then
+			echo -e "\n127.0.0.$port $VHOST" >>$F
+			echo "Virtual host $VHOST installed: $port"
+			break;
+		fi
+	done
+}
+
+function getPid() {
+	pid=$(ps aux | perl -ne 'print $1 if /^\S+\s+(\d+).*python.*pywwetha\.py/')
+	echo $pid
+}
+
+function start() {
   pid=$(getPid)
   if [ -n "$pid" ] ; then
   	echo "pywwetha is still running: .$pid."
@@ -28,10 +45,11 @@ start() {
   fi
 }
 
-stop() {
+function stop() {
+  quiet=$1
   pid=$(getPid)
-  if [ -z "$pid" ] ; then
-  	echo "not running: pywwetha.py"
+  if [ -z "$pid"  ] ; then
+  	test -z $quiet && echo "not running: pywwetha"
   else
 	  kill -TERM $pid
 	  count=10
@@ -42,25 +60,38 @@ stop() {
 	  done
 	  pid=$(getPid)
 	  test -n "$pid" && kill -9 $pid
+	  echo "pywwetha stopped"
   fi
- }
-
-getPid() {
-	pid=$(ps aux | perl -ne 'print $1 if /^\S+\s+(\d+).*python.*pywwetha\.py/')
-	echo $pid
 }
 
+function checkHosts(){
+	rc=0
+	pushd /etc/pywwetha/virtualhosts.d >/dev/null
+	for file in * ; do
+		if [ -f $file ] ; then
+			# Correct constructs like abc.new-dist
+			file=${file%%.*}
+			if ! grep -q $file /etc/hosts ; then
+				addHost $file
+				rc=1
+			fi
+		fi
+	done
+	popd  >/dev/null
+	test $rc -eq 1 && stop q
+}
 
 case "$1" in
 start)
-    start $pid
+	checkHosts && stop q
+    start
     ;;
 stop)
-    stop $pid
+    stop
     ;;
 restart|force-reload)
-    stop $pid
-    start ""
+    stop q
+    start
     ;;
 status)
     echo -n "Checking for pywwetha webserver"
@@ -73,6 +104,9 @@ status)
     ;;
 check-config)
 	$BIN --check-config
+	;;
+add-host)
+	addHost $2
 	;;
 *)
     echo "Usage: $0 {start|stop|restart|force-reload|status|check-config}"

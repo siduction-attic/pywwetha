@@ -1,26 +1,14 @@
-#! /bin/bash
-cmd=start
+#! /bin/sh
+
 if [ -n "$1" ] ; then
 	case "$1" in 
-		start|stop|restart|status|check-config)
+	start|stop|restart|status|check-config|add-host)
 		cmd=$1
 		;;
-	add-host)
-		F=/etc/hosts
-
-		# only registered virtual hosts will be added!
-		if [ -f /etc/pywwetha/virtualhosts.d/$2 ] ; then
-			if ! grep "$2" $F >/dev/null ; then
-				echo -e "\n127.0.0.86 $2" >>$F
-				echo "Virtual host $2 installed"
-			fi
-		fi
-		;;
 	*)
-		echo "unknown command. use start stop status check-config add-host."
+		echo "unknown command! Use start stop status check-config add-host."
 		exit 1
 		;;
 	esac
 fi
-#set -x
 sudo /etc/init.d/pywwetha $cmd

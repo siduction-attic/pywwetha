@@ -1,3 +1,11 @@
+pywwetha (0.5-1) unstable; urgency=low
+
+  * Improved adding virtual hosts:
+  ** Now more than one vhost can be added correctly 
+  ** Check for missing virtual hosts on each start
+
+ -- J. Hamatoma <hamatoma@gmx.de>  Sat, 26 Nov 2011 18:19:20 +0100
+
 pywwetha (0.4-1) unstable; urgency=low
 
   * pywwetha-control: added option add-host
