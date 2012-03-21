@@ -1,3 +1,11 @@
+pywwetha (0.5-2) unstable; urgency=low
+
+  * bump standards to 3.9.3
+  * bump compat to 9
+  * .gitignore added 
+
+ -- Alf Gaida <agaida@siduction.org>  Wed, 21 Mar 2012 13:47:47 +0100
+
 pywwetha (0.5-1) unstable; urgency=low
 
   * Improved adding virtual hosts:

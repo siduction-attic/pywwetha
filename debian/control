@@ -2,8 +2,9 @@ Source: pywwetha
 Section: httpd
 Priority: optional
 Maintainer: J. Hamatoma <hamatoma@gmx.de>
-Build-Depends: debhelper (>= 8.0.0)
-Standards-Version: 3.9.2
+Uploaders: Alf Gaida <agaida@siduction.org>
+Build-Depends: debhelper (>= 8)
+Standards-Version: 3.9.3
 Homepage: http://siduction.org
 Vcs-Git: git://git.siduction.org/packages/siduction-repository/pywwetha
 Vcs-Browser: http://git.siduction.org/?p=packages/siduction-repository/pywwetha.git;a=summary
