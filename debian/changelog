@@ -1,3 +1,11 @@
+pywwetha (0.6.1) unstable; urgency=low
+
+  * get rid of the remaining lintian issues
+  * fixed some copyright issues (dep5) to do so
+  * fixes #656 
+
+ -- Alf Gaida <agaida@siduction.org>  Fri, 23 Mar 2012 11:40:51 +0100
+
 pywwetha (0.6) unstable; urgency=low
 
   * debhelper (>= 9)

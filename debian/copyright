@@ -3,19 +3,19 @@ Upstream-Name: pywwetha
 Source: http://git.siduction.org/
 
 Files: *
-Copyright: 2011 J. Hamatoma <hamatoma@gmx.de>
-
+Copyright: 2011-2012 J. Hamatoma <hamatoma@gmx.de>
 License: GPL-3.0+
 
 Files: debian/*
-Copyright: 2011 J. Hamatoma <hamatoma@gmx.de>
+Copyright: 2011-2012 J. Hamatoma <hamatoma@gmx.de>
+           2012      Alf Gaida <agaida@siduction.org>
 License: GPL-3.0+
 
 License: GPL-3.0+
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
+ any later version.
  .
  This package is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
