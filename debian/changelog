@@ -1,3 +1,13 @@
+pywwetha (0.6) unstable; urgency=low
+
+  * debhelper (>= 9)
+  * bump version to 0.6
+  * please use a point-numbering in the future. Numberings with dash are
+    preserved for source-format 3.0 (quilt)
+  * refs #656
+
+ -- Alf Gaida <agaida@siduction.org>  Fri, 23 Mar 2012 11:34:59 +0100
+
 pywwetha (0.5-2) unstable; urgency=low
 
   * bump standards to 3.9.3
