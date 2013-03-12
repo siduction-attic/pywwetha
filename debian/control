@@ -1,10 +1,10 @@
 Source: pywwetha
 Section: httpd
 Priority: optional
-Maintainer: J. Hamatoma <hamatoma@gmx.de>
+Maintainer: J. Hamatoma <hama@siduction.net>
 Uploaders: Alf Gaida <agaida@siduction.org>
-Build-Depends: debhelper (>= 9)
-Standards-Version: 3.9.3
+Build-Depends: debhelper (>= 9),
+Standards-Version: 3.9.4
 Homepage: http://siduction.org
 Vcs-Git: git://git.siduction.org/packages/siduction-repository/pywwetha
 Vcs-Browser: http://git.siduction.org/?p=packages/siduction-repository/pywwetha.git;a=summary
@@ -14,7 +14,7 @@ Architecture: all
 Depends: ${misc:Depends},
 	python (>=2.0),
 	python-support (>= 0.90.0),
-	sudo (>=1.0)
+	sudo (>=1.0),
 Description: simple webserver for static html and CGI.
  This webserver can issue static files and CGI created pages.
  Main usage: Building dynamic pages for life CDs or local usage.

@@ -1,11 +1,21 @@
-pywwetha (1.0.0+nmu3) UNRELEASED; urgency=low
+pywwetha (1.0.2) unstable; urgency=low
 
-  * Non-maintainer upload.
+  [ J. Hamatoma ]
   * WSGI and python-django support
   * mime type: +svg +tty
   * tested with Python V3.0
 
- -- J. Hamatoma <hama@siduction.net>  Fri, 08 Mar 2013 19:39:17 +0100
+  [ Alf Gaida ]
+  * fixed debian control Maintainer-EMail, the faulty one causes
+    nmu-numbers
+  * Standards: 3.9.4 
+  * removed template comments from debian/rules
+  * fixes debian/copyright (year-bump)
+  * removed nmu number
+  * fix copyright format
+  * rebuild fixes #1108
+
+ -- Alf Gaida <agaida@siduction.org>  Tue, 12 Mar 2013 01:59:45 +0100
 
 pywwetha (0.6.1) unstable; urgency=low
 

@@ -1,4 +1,4 @@
-Format: http://dep.debian.net/deps/dep5
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: pywwetha
 Source: http://git.siduction.org/
 
@@ -7,8 +7,8 @@ Copyright: 2011-2012 J. Hamatoma <hamatoma@gmx.de>
 License: GPL-3.0+
 
 Files: debian/*
-Copyright: 2011-2012 J. Hamatoma <hamatoma@gmx.de>
-           2012      Alf Gaida <agaida@siduction.org>
+Copyright: 2011-2013 J. Hamatoma <hamatoma@gmx.de>
+           2012-2013 Alf Gaida <agaida@siduction.org>
 License: GPL-3.0+
 
 License: GPL-3.0+
