@@ -1,3 +1,10 @@
+pywwetha (1.1.1) UNRELEASED; urgency=low
+
+  * support for POST
+  * fix: correct script path in SCRIPT_FILENAME for wsgi
+
+ -- J. Hamatoma <hama@siduction.net>  Wed, 20 Mar 2013 15:16:26 +0100
+
 pywwetha (1.0.2) unstable; urgency=low
 
   [ J. Hamatoma ]

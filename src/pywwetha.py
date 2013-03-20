@@ -237,33 +237,38 @@ class Config:
         ''' % msg
         return rc
     
-    def splitUrlRaw(self, path, script, environment):
+    def splitUrlRaw(self, method, path, script, environment):
         '''Splits the URL into its parts.
         The parts will be stored in <code>environment</code>.
         @param path: the url without protocol, host and port
-        @param defaultScript: the script name (URL)
+        @param script: the script name (in local filesystem)
         @param environment: a dictionary containing the values to change
         '''
-        docRoot = self.getItemOfHost('documentRoot') 
-        environment['REQUEST_METHOD'] = 'GET'
-        environment['SCRIPT_FILENAME'] = docRoot + path
+        environment['REQUEST_METHOD'] = method
+        environment['SCRIPT_FILENAME'] = script
         environment['QUERY_STRING'] = '' 
         environment['REQUEST_URI'] = path
-        environment['SCRIPT_NAME'] = script
+        environment['SCRIPT_NAME'] = "/" + os.path.basename(script)
         environment['PATH_INFO'] = path
         
-    def splitUrl(self, path, script, environment):
+    def splitUrl(self, method, path, script, environment):
         '''Splits the URL into its parts.
         The parts will be stored in <code>environment</code>.
+        @param method: 'get' or 'post'
         @param path: the url without protocol, host and port
         @param defaultScript: the script name (URL) if it cannot retrieved by the URL
         @param environment: a dictionary containing the values to change
         '''
         matcher = self._currentHost._urlMatcher.match(path)
+        docRoot = self.getItemOfHost('documentRoot') 
         if matcher == None:
-            self.splitUrlRaw(path, script, environment)
+            environment['REQUEST_METHOD'] = method
+            environment['SCRIPT_FILENAME'] = docRoot + path
+            environment['QUERY_STRING'] = '' 
+            environment['REQUEST_URI'] = path
+            environment['SCRIPT_NAME'] = script
+            environment['PATH_INFO'] = path
         else:
-            docRoot = self.getItemOfHost('documentRoot')                 
             environment['SCRIPT_FILENAME'] = docRoot + matcher.group(1)
             query = matcher.group(6)
             environment['QUERY_STRING'] = query 
@@ -309,7 +314,7 @@ class Config:
                 if item not in sys.path:
                     sys.path = [item] + sys.path
  
-    def buildMeta(self, server, environment):
+    def buildMeta(self, method, server, environment):
         '''Builds the meta info of the CGI / WSDI program.
         @param environment: the dictionary to fill
         '''
@@ -340,7 +345,7 @@ class Config:
         if pathInfo == None:
             pathInfo = ""
         environment['PATH_TRANSLATED'] = docRoot + pathInfo
-        environment['REQUEST_METHOD'] = 'GET'
+        environment['REQUEST_METHOD'] = method
         environment['CONTENT_LENGTH'] = 0
         environment['wsgi.input'] = server.rfile
         environment['wsgi.errors'] = sys.stdout
@@ -348,12 +353,13 @@ class Config:
         environment['wsgi.multiprocess'] = False
         environment['wsgi.run_once'] = False
         
-    def runCgi(self, server):
+    def runCgi(self, method, server):
         '''Runs the cgi program and writes the result.
+        @param method: 'get' or 'post'
         @param server: the server
         '''
-        self.buildMeta(server, self._server)
-        self.splitUrl(server.path, server.path, self._server)
+        self.buildMeta(method, server, self._server)
+        self.splitUrl(method, server.path, server.path, self._server)
         for key, value in self._server.iteritems():
             if value == None:
                 value = '' 
@@ -450,11 +456,13 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
             self.wfile.write(handle.read())
             handle.close()
 
-    def runWSGI(self, config, module):
+    def runWSGI(self, method, config, module):
         '''Starts the application using the WebServerGatewayInterface.
+        @param method: 'get' or 'post'
         @param config: the configuration info for the application subsystem
         @param module: the module containing the WSGI definitions.<br>
                         May be a path like main.wsgi. Will be imported
+        @param method: 'get' or 'post'
         '''
         if self.path.startswith('/static/'):
             prefix = config.getItemOfHost('wsgiStaticPagePrefix')
@@ -465,11 +473,20 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
             self.sendFile(filename, mimeType)
         else:
             environment = {}
-            config.buildMeta(self, environment)
+            config.buildMeta(method, self, environment)
             if module not in sys.modules:
                 __import__(module)
-            path_info = re.split(' ', self.raw_requestline)[1]
-            config.splitUrlRaw(path_info, '', environment)
+            # e.g. "GET /home HTTP/1.1"
+            pathInfo = re.split(' ', self.raw_requestline)[1]
+            script = config.getItemOfHost('documentRoot') + '/wsgi.py'
+            environment['REQUEST_METHOD'] = method
+            environment['SCRIPT_FILENAME'] = script
+            ix = pathInfo.find('?')
+            environment['QUERY_STRING'] = '' if ix < 0 else pathInfo[ix+1:] 
+            environment['REQUEST_URI'] = pathInfo
+            environment['SCRIPT_NAME'] = "/wsgi.py"
+            environment['PATH_INFO'] = pathInfo
+            
             config.extendPythonPath()
             application = sys.modules[module].application
             
@@ -481,35 +498,48 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
                 self.wfile.write(answer.content)
             
          
-    def handleWSGI(self, config):
+    def handleWSGI(self, method, config):
+        '''Handles a WSGI application.
+        @param method: 'get' or 'post'
+        @param config: configuration info
+        '''
         self.prepareWSGI(config)
-        self.runWSGI(config, 'wsgi')
+        self.runWSGI(method, config, 'wsgi')
     
-    def handleDjango(self, config):
+    def handleDjango(self, method, config):
+        '''Handles a Python Django application.
+        @param method: 'get' or 'post'
+        @param config: configuration info
+        '''
         self.prepareWSGI(config)
         module = config.getItemOfHost('djangoRoot')
         if module == None:
             config.errorMessage('no djangoRoot found in ' + config.getName())
         else:
-            self.runWSGI(config, module)
+            self.runWSGI(method, config, module)
    
     def do_GET(self):
         '''Handles a GET request.
         '''
-        env = os.environ
+        self.do_it('get')
+        
+    def do_it(self, method):
+        '''Handles a request (GET or POST).
+        @param method: 'get' or 'post'
+        '''
+        #env = os.environ
         global config
         config.setVirtualHost(self.headers.dict['host'])
         if self.path == '/':
             self.path = '/' + config.getItemOfHost('index')
-        #say('GET: ' + self.path)
         say(self.raw_requestline)
         try:
             if config.isDjango():
-                self.handleDjango(config)
+                self.handleDjango(method, config)
             elif config.isWSGI():
-                self.handleWSGI(config)
+                self.handleWSGI(method, config)
             elif config.isCgi(self.path):
-                config.runCgi(self)
+                config.runCgi(method, self)
             else:
                 filename = config.getItemOfHost('documentRoot') + self.path
                 mimeType = config.getMimeType(filename)
@@ -522,10 +552,7 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
     def do_POST(self):
         '''Handles a POST request.
         '''
-        try:
-            set.do_GET(self)
-        except :
-            pass
+        self.do_it('post')
 
 def usage(msg = None):
     config._verbose = True
