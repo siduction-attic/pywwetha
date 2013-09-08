@@ -13,11 +13,14 @@ Created on 28.10.2011
 @author: Hamatoma
 '''
 
-import os, sys, re, subprocess, BaseHTTPServer, glob, importlib
-from httplib import HTTPResponse
+import os, sys, re, subprocess, BaseHTTPServer, glob
+import logging
 
-VERSION = '1.0.0'
-VERSION_EXTENDED = VERSION + ' (2013.03.07)' 
+VERSION = '1.1.1'
+VERSION_EXTENDED = VERSION + ' (2013.09.03)' 
+
+logger = logging.getLogger(__name__)
+
 def say(msg):
     '''Prints a message if allowed.
     @param msg: the message to print
@@ -25,25 +28,19 @@ def say(msg):
     global config
     if config != None and config._verbose:
         sys.stdout.write(msg + '\n')
-    if config != None and config._doLog:
-        log(msg)
+    log(msg)
         
 def sayError(msg):
     '''Prints an error message if possible.
     @param msg: the message to print
     ''' 
     global config
-    if config != None and not config._daemon:
-        say('+++ ' + msg)
-    if config != None and config._doLog:
-        log('+++ ' + msg)
-
+    if config != None and config._verbose:
+        sys.stdout.write("+++ " + msg + '\n')
+    logger.error(msg)
+    
 def log(msg):
-    global config
-    if config._logFile == None:
-        config._logFile = open('/tmp/pywwetha.log', 'a')
-    config._logFile.write(msg + "\n")
-    config._logFile.flush()
+    logger.info(msg)
         
 class Host:
     '''Holds the data of a virtual host
@@ -62,13 +59,12 @@ class Config:
         '''Constructor.
         '''
         self._debug = False
+        self._logLevel = logging.WARNING
         self._verbose = False
         self._daemon = False
-        self._logFile = None
         self._translatePathInfo = None
         self._port = 80
         self._hosts = dict()
-        self._doLog = False
         self._currentHost = None
         self._hosts['localhost'] = Host('localhost')
         configfiles = glob.glob('/etc/pywwetha/*.conf')
@@ -120,13 +116,11 @@ class Config:
         if not handle:
             sayError("not readable: %s" % name)
         else:
-            if name == '/etc/pywwetha/sidu-manual.conf':
-                pass
             say(name + ":")
             vhostMatcher = re.compile(r'([-a-zA-z0-9._]+):(\w+)\s*=\s*(.*)')
             varMatcher = re.compile(r'(\w+)\s*=\s*(.*)')
             itemMatcher = re.compile(
-                r'(documentRoot|cgiProgram|cgiArgs|cgiExt|index|djangoRoot|pythonPath|wsgiStaticPagePrefix)$')
+                r'(documentRoot|cgiProgram|cgiArgs|cgiExt|index|djangoRoot|djinnUrls|pythonPath|wsgiStaticPagePrefix)$')
             lineNo = 0
             for line in handle:
                 lineNo += 1
@@ -148,8 +142,11 @@ class Config:
                         host._items[var] = value
                         if var == 'documentRoot' and not os.path.isdir(value):
                             sayError('%s-%d: %s is not a directory' % (name, lineNo, value))
-                        elif var == 'cgiProgram' and not os.path.isfile(value):
-                            sayError('%s-%d: %s does not exist: ' % (name, lineNo, value))
+                        elif var == 'cgiProgram' and not (
+                                value == "django" or value == "WSGI" 
+                                or value == "djinn"
+                                or os.path.isfile(value)):
+                            sayError('%s-%d: CGI not found: %s' % (name, lineNo, value))
                         else:
                             say('%s: %s=%s' % (vhost, var, value))
                     else:
@@ -171,8 +168,21 @@ class Config:
                             say('%s=%s' % (var, value))
                         elif var == 'debug':
                             self._debug = re.match(r'[tT1]', value)
+                        elif var == 'loglevel':
+                            matcher = re.match(r'(\d+)', value)
+                            if matcher == None:
+                                sayError("%s-%d: log level must be a number: %s"
+                                    (name, lineNo, value))
+                            else:
+                                level = int(matcher.group(1))
+                                if level < 0 or level % 10 != 0 or level > logging.CRITICAL:
+                                    sayError("%s-%d: wrong level: {:d}. Use 0, 10, 20..50."
+                                             .format(name, lineNo, level))
+                                else:    
+                                    self._logLevel = int( level)
+                                
                         else:
-                            sayError("%s-%d: unknown item: " % (name, lineNo, var))
+                            sayError("%s-%d: unknown var: %s" % (name, lineNo, var))
             handle.close()
              
     def getItemOfHost(self, name):
@@ -216,6 +226,10 @@ class Config:
  
     def isDjango(self):
         rc = self.getItemOfHost('cgiProgram') == 'django'
+        return rc
+    
+    def isDjinn(self):
+        rc = self.getItemOfHost('cgiProgram') == 'djinn'
         return rc
     
     def isWSGI(self):
@@ -289,6 +303,8 @@ class Config:
         if not hostname in self._hosts:
             hostname = 'localhost'
         self._currentHost = self._hosts[hostname]
+        logger.debug("Virtual host {:s} recognized as {:s}".format(host, hostname))
+
         
     def getHeader(self, server, key):
         '''Returns a value of the headers.
@@ -308,11 +324,14 @@ class Config:
     def extendPythonPath(self):
         '''Extends the search path for modules from the configuration.
         '''
-        path = self.getItemOfHost('pythonPath')
-        if path != None:
-            for item in re.split(r';', path):
-                if item not in sys.path:
-                    sys.path = [item] + sys.path
+        if not hasattr(self, "_hasPythonPath"):
+            self._hasPythonPath = True
+            path = self.getItemOfHost('pythonPath')
+            if path != None:
+                for item in re.split(r'[;:]', path):
+                    if item not in sys.path:
+                        logger.debug("python path has been extended: " + item)
+                        sys.path = [item] + sys.path
  
     def buildMeta(self, method, server, environment):
         '''Builds the meta info of the CGI / WSDI program.
@@ -352,7 +371,7 @@ class Config:
         environment['wsgi.multithread'] = False
         environment['wsgi.multiprocess'] = False
         environment['wsgi.run_once'] = False
-        
+         
     def runCgi(self, method, server):
         '''Runs the cgi program and writes the result.
         @param method: 'get' or 'post'
@@ -402,7 +421,7 @@ class Config:
                 say("Content type not found. Generating...")
                 mimeType = 'text/html'
                 server.send_header('Content-type', mimeType)
-                server.end_headers()
+            server.end_headers()
             server.wfile.write(content)
             say('Content: ' + content[0:80] + '...')
         else:
@@ -424,10 +443,28 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
     '''Implements a web server.
     '''
     
-    def prepareWSGI(self, config):
+    def prepareWSGI(self, config, method):
+        '''Does common things for calling WSGI.
+        @param config:    configuration data
+        @param method:    get or post
+        '''
         documentRoot = config.getItemOfHost('documentRoot')
         if documentRoot not in sys.path:
             sys.path = [documentRoot] + sys.path
+        environment = {}
+        config.buildMeta(method, self, environment)
+        # e.g. "GET /home HTTP/1.1"
+        pathInfo = re.split(' ', self.raw_requestline)[1]
+        script = config.getItemOfHost('documentRoot') + '/wsgi.py'
+        environment['REQUEST_METHOD'] = method
+        environment['SCRIPT_FILENAME'] = script
+        ix = pathInfo.find('?')
+        environment['QUERY_STRING'] = '' if ix < 0 else pathInfo[ix+1:] 
+        environment['REQUEST_URI'] = pathInfo
+        environment['SCRIPT_NAME'] = "/wsgi.py"
+        environment['PATH_INFO'] = pathInfo
+        self._wsgiEnvironment = environment
+        
      
     def startResponse(self, status, responseHeaders):
         '''Handler of the header. Is part of the WSGI.
@@ -439,7 +476,6 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         self.send_response(statusNo)
         for pair in responseHeaders:
             self.send_header(pair[0], pair[1])
-        #self.end_headers()
           
     def sendFile(self, filename, mimeType):
         '''Sends a file to the browser:
@@ -456,46 +492,50 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
             self.wfile.write(handle.read())
             handle.close()
 
-    def runWSGI(self, method, config, module):
-        '''Starts the application using the WebServerGatewayInterface.
-        @param method: 'get' or 'post'
-        @param config: the configuration info for the application subsystem
-        @param module: the module containing the WSGI definitions.<br>
-                        May be a path like main.wsgi. Will be imported
-        @param method: 'get' or 'post'
+    def handleStatics(self, config):
+        '''Handles request of static content if the request is static.
+        @param config:    configuration data
+        @return:     True: request has been static and is handled.
+                     False: otherwise
         '''
-        if self.path.startswith('/static/'):
+        rc = False
+        if self.path.startswith('/static/') or self.path == "/favicon.ico":
             prefix = config.getItemOfHost('wsgiStaticPagePrefix')
             if prefix == None:
                 prefix = ''
             filename = config.getItemOfHost('documentRoot') + prefix + self.path
             mimeType = config.getMimeType(filename)
             self.sendFile(filename, mimeType)
+            rc = True
+        return rc
+        
+    def runWSGI(self, config, module):
+        '''Starts the application using the WebServerGatewayInterface.
+        @param config: the configuration info for the application subsystem
+        @param module: the module containing the WSGI definitions.<br>
+                        May be a path like main.wsgi. Will be imported
+        @param method: 'get' or 'post'
+        @return:        the answer of the WSGI application: WsgiResponse...
+        '''
+        module = self.getModule(config, module)
+        application = module.application
+        
+        response = application.__call__(self._wsgiEnvironment, self.startResponse)
+        return response
+
+    def handleContent(self, response):
+        '''Handles the content of a HttpResponse.
+        @param response:    a HttpResponse (or similar) instance
+        '''
+        if not hasattr(response, 'content'):
+            self.end_headers()
         else:
-            environment = {}
-            config.buildMeta(method, self, environment)
-            if module not in sys.modules:
-                __import__(module)
-            # e.g. "GET /home HTTP/1.1"
-            pathInfo = re.split(' ', self.raw_requestline)[1]
-            script = config.getItemOfHost('documentRoot') + '/wsgi.py'
-            environment['REQUEST_METHOD'] = method
-            environment['SCRIPT_FILENAME'] = script
-            ix = pathInfo.find('?')
-            environment['QUERY_STRING'] = '' if ix < 0 else pathInfo[ix+1:] 
-            environment['REQUEST_URI'] = pathInfo
-            environment['SCRIPT_NAME'] = "/wsgi.py"
-            environment['PATH_INFO'] = pathInfo
-            
-            config.extendPythonPath()
-            application = sys.modules[module].application
-            
-            answer = application.__call__(environment, self.startResponse)
-            if hasattr(answer, 'content'):
-                length = len(answer.content)
-                self.send_header('CONTENT-LENGTH', str(length))
-                self.end_headers()
-                self.wfile.write(answer.content)
+            content = response.content.encode("utf-8")
+            length = len(content)
+            self.send_header('Content-Length', str(length))
+            # @ToDo: writing cookies
+            self.end_headers()
+            self.wfile.write(content)
             
          
     def handleWSGI(self, method, config):
@@ -503,21 +543,124 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         @param method: 'get' or 'post'
         @param config: configuration info
         '''
-        self.prepareWSGI(config)
-        self.runWSGI(method, config, 'wsgi')
+        if not self.handleStatics(config):
+            self.prepareWSGI(config, method)
+            response = self.runWSGI(config, "wsgi")
+            self.handleContent(response)
     
+    def importModule(self, config, key):
+        '''Calls a module given by an entry of the config.
+        @param config:    the configuration data
+        @param key:       the name of the entry in the config
+        @return:          None: module not found
+                          otherwise: the loaded module
+        '''
+        module = config.getItemOfHost(key)
+        if module == None:
+            config.errorMessage('{:s} not found in {:}'.format(key,
+                config.getName()))
+        else:
+            module = self.getModule(config, module) 
+        return module
+
     def handleDjango(self, method, config):
         '''Handles a Python Django application.
         @param method: 'get' or 'post'
         @param config: configuration info
         '''
-        self.prepareWSGI(config)
-        module = config.getItemOfHost('djangoRoot')
-        if module == None:
-            config.errorMessage('no djangoRoot found in ' + config.getName())
-        else:
-            self.runWSGI(method, config, module)
-   
+        if not self.handleStatics(config):
+            self.prepareWSGI(config, method)
+            name = config.getItemOfHost("djangoRoot")
+            response = self.runWSGI(config, name)
+            self.handleContent(response)
+
+    def getModule(self, config, name):
+        '''Gets a module by name.
+        If not loaded it will be loaded.
+        @param config: the configuration info for the application subsystem
+        @param name:    the name of the module
+        @return:        the module
+        '''
+        config.extendPythonPath()
+        if name not in sys.modules:
+            if config._verbose:
+                say('importing ' + name)
+            __import__(name)
+        module = sys.modules[name]
+        return module
+
+    def reloadModule(self, name, mandatoryMember):
+        '''Reloads a module if it is from the wrong path.
+        @param name:              Name of the module
+        @param mandatoryMember:   if this member does not exist 
+                                  the module will be reloaded
+        '''
+        if name in sys.modules:
+            module = sys.modules[name]
+            if not mandatoryMember in module.__dict__:
+                # unload:
+                del sys.modules[name]
+        # load or load again:
+        if name not in sys.modules:
+            if config._verbose:
+                say('importing ' + name)
+            __import__(name)
+            module = sys.modules[name]
+        
+    def unloadPath(self, prefix):
+        '''Removes all paths from the python path with a given prefix.
+        @param path:    path to remove
+        '''
+        for ix in xrange(len(sys.path) -1, 1, -1):
+            name = sys.path[ix]
+            if name.startswith(prefix):
+                say("unloading " + name)
+                del sys.path[ix]
+        pass
+    
+    def unloadDjango(self):
+        '''Removes all Django paths from the python path.
+        '''
+        self.unloadPath("/usr/lib/python2.7/dist-packages") 
+           
+    def handleDjinn(self, method, config):
+        '''Handles a Djinn application. 
+        Djinn is a replacement of Django.
+        @param method: 'get' or 'post'
+        @param config: configuration info
+        '''
+        if not self.handleStatics(config):       
+            for path in sys.path:
+                if path.find("/pywwetha/") >= 0:
+                    if path.endswith("source"):
+                        path =  sys.path[0].replace("/source", "/djinn")
+                        logger.debug("python path has been extended: " + path)
+                        sys.path = [path] + sys.path
+                    break
+            item = config.getItemOfHost("documentRoot")
+            if item not in sys.path:
+                logger.debug("python path has been extended: " + item)
+                sys.path = [item] + sys.path
+            self.unloadDjango()
+            self.reloadModule("django.conf.urls", "djinnMarker")
+            self.reloadModule("django.http", "djinnMarker")
+            module = self.importModule(config, "djinnUrls")
+            if module != None:
+                self.prepareWSGI(config, method)
+                patterns = module.getPatterns()
+                module = self.getModule(config, "wsgihandler")
+                module.urlPatterns = patterns
+                module = self.getModule(config, "application")
+                application = module.application
+                response = application.__call__(self._wsgiEnvironment, self.startResponse)
+                if response == None:
+                    self.send_error("404 Not Found", "Address not found: {:s}"
+                        .format(self.path))
+                else:
+                    self.handleContent(response)
+        pass
+
+        
     def do_GET(self):
         '''Handles a GET request.
         '''
@@ -532,10 +675,12 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         config.setVirtualHost(self.headers.dict['host'])
         if self.path == '/':
             self.path = '/' + config.getItemOfHost('index')
-        say(self.raw_requestline)
+        say(self.raw_requestline[0:-1])
         try:
             if config.isDjango():
                 self.handleDjango(method, config)
+            elif config.isDjinn():
+                self.handleDjinn(method, config)
             elif config.isWSGI():
                 self.handleWSGI(method, config)
             elif config.isCgi(self.path):
@@ -564,8 +709,6 @@ Usage: pywwetha.py <opts>
 <opt>:
 --verbose    
     Issues some messages
---log
-    Writes messages to /tmp/pywwetha.log
 --debug
     Insert php-cgi warnings and errors into the html pages
 --daemon
@@ -588,7 +731,12 @@ def main():
     '''
     global config
     config = None
+    fnLog = "/tmp/pywwetha.log"
+    if os.path.exists(fnLog):
+        os.unlink(fnLog)
+    logging.basicConfig(filename=fnLog,level=logging.ERROR)
     config = Config()
+    logLevel = config._logLevel
     for ii in xrange(1, len(sys.argv)):
         if sys.argv[ii] == '--daemon':
             config._daemon = True
@@ -597,8 +745,7 @@ def main():
             config._verbose = True
         elif sys.argv[ii] == '--debug':
             config._debug = True
-        elif sys.argv[ii] == '--log':
-            config._doLog = True
+            logLevel = logging.DEBUG
         elif sys.argv[ii] == '--check-config':
             config._verbose = True
             # read again with error reporting:
@@ -614,6 +761,11 @@ def main():
             usage()
         else:
             usage('unknown option: ' + sys.argv[ii])
+    if logLevel < logging.ERROR:
+        logging.basicConfig(filename='/tmp/pywwetha.log',level=logLevel)
+    if config._verbose:
+        say("Starting pywwetha with log level {:s}"
+            .format(logging.getLevelName(logLevel)))
     try:
         server = BaseHTTPServer.HTTPServer(('', config._port), WebServer)
         if not config._daemon:

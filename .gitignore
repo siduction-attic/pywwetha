@@ -8,3 +8,6 @@ debian/pywwetha.postrm.debhelper
 debian/pywwetha.prerm.debhelper
 debian/pywwetha.substvars
 debian/pywwetha/
+*.pyc
+*~
+

@@ -1,5 +1,6 @@
-src/*			usr/share/pywwetha
+source			usr/share/pywwetha
+djinn			usr/share/pywwetha
 etc/pywwetha	etc
 etc/sudoers.d	etc
-/usr/bin		usr
+bin		usr
 

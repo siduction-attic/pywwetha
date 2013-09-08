@@ -11,7 +11,7 @@
 PATH=$PATH:/bin:/sbin:/usr/sbin
 
 VERBOSE=-v
-BIN=/usr/share/pywwetha/pywwetha.py
+BIN=/usr/share/pywwetha/source/pywwetha.py
 CONFIG=/etc/pywwetha/pywwetha.conf
 
 function addHost(){
@@ -36,12 +36,13 @@ function start() {
   if [ -n "$pid" ] ; then
   	echo "pywwetha is still running: .$pid."
   else
+      FN=/tmp/pywwetha.log
+      test -f $FN && rm $FN
 	  user=$(perl -ne 'print $1 if /^user\s*=\s*(\S+)/;' $CONFIG)
 	  test -n "$user" && user="--chuid $user"
 	  group=$(perl -ne 'print $1 if /^group\s*=\s*(\S+)/;' $CONFIG)
 	  test -n "$group" && group="--group $group"
-	  log=$(perl -ne 'print "--log" if /^daemon-log\s*=\s*(true|1)/i;' $CONFIG)
-	  start-stop-daemon $VERBOSE --background $group $user --exec $BIN --start -- --daemon $log
+	  start-stop-daemon $VERBOSE --background $group $user --exec $BIN --start -- --daemon
   fi
 }
 

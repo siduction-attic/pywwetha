@@ -1,9 +1,15 @@
-pywwetha (1.1.1) UNRELEASED; urgency=low
+pywwetha (1.1.1) unstable; urgency=low
 
   * support for POST
   * fix: correct script path in SCRIPT_FILENAME for wsgi
+  * logging changed to python standard logging
+  * log level will be set by argument --debug or in config file: loglevel=<no>
+  * Djinn: an implementation of WSGI middleware, a replacement for Django
+  * usr/bin moved to bin
+  * end_headers() was ommitted in some cases
+  * ugly newline in log
 
- -- J. Hamatoma <hama@siduction.net>  Wed, 20 Mar 2013 15:16:26 +0100
+ -- J. Hamatoma <hama@siduction.net>  Mon, 09 Sep 2013 19:07:36 +0200
 
 pywwetha (1.0.2) unstable; urgency=low
 
@@ -15,7 +21,7 @@ pywwetha (1.0.2) unstable; urgency=low
   [ Alf Gaida ]
   * fixed debian control Maintainer-EMail, the faulty one causes
     nmu-numbers
-  * Standards: 3.9.4 
+  * Standards: 3.9.4
   * removed template comments from debian/rules
   * fixes debian/copyright (year-bump)
   * removed nmu number
@@ -28,7 +34,7 @@ pywwetha (0.6.1) unstable; urgency=low
 
   * get rid of the remaining lintian issues
   * fixed some copyright issues (dep5) to do so
-  * fixes #656 
+  * fixes #656
 
  -- Alf Gaida <agaida@siduction.org>  Fri, 23 Mar 2012 11:40:51 +0100
 
@@ -46,14 +52,14 @@ pywwetha (0.5-2) unstable; urgency=low
 
   * bump standards to 3.9.3
   * bump compat to 9
-  * .gitignore added 
+  * .gitignore added
 
  -- Alf Gaida <agaida@siduction.org>  Wed, 21 Mar 2012 13:47:47 +0100
 
 pywwetha (0.5-1) unstable; urgency=low
 
   * Improved adding virtual hosts:
-  ** Now more than one vhost can be added correctly 
+  ** Now more than one vhost can be added correctly
   ** Check for missing virtual hosts on each start
 
  -- J. Hamatoma <hamatoma@gmx.de>  Sat, 26 Nov 2011 18:19:20 +0100
