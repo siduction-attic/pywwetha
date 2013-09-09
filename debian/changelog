@@ -1,7 +1,5 @@
-pywwetha (1.1.1) unstable; urgency=low
+pywwetha (1.2.1) unstable; urgency=low
 
-  * support for POST
-  * fix: correct script path in SCRIPT_FILENAME for wsgi
   * logging changed to python standard logging
   * log level will be set by argument --debug or in config file: loglevel=<no>
   * Djinn: an implementation of WSGI middleware, a replacement for Django
@@ -10,6 +8,17 @@ pywwetha (1.1.1) unstable; urgency=low
   * ugly newline in log
 
  -- J. Hamatoma <hama@siduction.net>  Mon, 09 Sep 2013 19:07:36 +0200
+
+pywwetha (1.1.1) unstable; urgency=low
+
+  [ J. Hamatoma ]
+  * support for POST
+  * fix: correct script path in SCRIPT_FILENAME for wsgi
+
+  [ Alf Gaida ]
+  * rebuild closes #1118
+
+ -- Alf Gaida <agaida@siduction.org>  Wed, 20 Mar 2013 22:41:07 +0100
 
 pywwetha (1.0.2) unstable; urgency=low
 
