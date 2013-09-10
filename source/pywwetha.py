@@ -6,7 +6,7 @@ Name:
 * piwwetha is a native american tribe. 
 * It is written in python.
 * It makes similar things like the apache does. 
-* pywwetha is not known by some search engines at its birth.
+* pywwetha is not known by some search engines (at pywwetha's birth).
   
 Created on 28.10.2011
 
@@ -14,12 +14,13 @@ Created on 28.10.2011
 '''
 
 import os, sys, re, subprocess, BaseHTTPServer, glob
-import logging
+import logging, time
+import traceback
 
-VERSION = '1.1.1'
-VERSION_EXTENDED = VERSION + ' (2013.09.03)' 
+VERSION = '1.2.2'
+VERSION_EXTENDED = VERSION + ' (2013.09.10)' 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("pywwetha")
 
 def say(msg):
     '''Prints a message if allowed.
@@ -583,8 +584,7 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         '''
         config.extendPythonPath()
         if name not in sys.modules:
-            if config._verbose:
-                say('importing ' + name)
+            log('importing ' + name)
             __import__(name)
         module = sys.modules[name]
         return module
@@ -602,8 +602,7 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
                 del sys.modules[name]
         # load or load again:
         if name not in sys.modules:
-            if config._verbose:
-                say('importing ' + name)
+            log('importing ' + name)
             __import__(name)
             module = sys.modules[name]
         
@@ -692,6 +691,11 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
                 
         except IOError:
             self.send_error(404,'File Not Found: %s' % self.path)
+        except:
+            logger.exception("page creation failed")
+            content = "Server error in {:s}\n{:s}".format(
+                self.path, traceback.format_exc(5))
+            self.send_error(500, content)
      
 
     def do_POST(self):
@@ -700,7 +704,6 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         self.do_it('post')
 
 def usage(msg = None):
-    config._verbose = True
     say('''
 pywwetha %s
 A simple webserver for static html and CGI.
@@ -734,22 +737,20 @@ def main():
     fnLog = "/tmp/pywwetha.log"
     if os.path.exists(fnLog):
         os.unlink(fnLog)
-    logging.basicConfig(filename=fnLog,level=logging.ERROR)
+    logging.basicConfig(filename=fnLog, level=logging.ERROR)
     config = Config()
     logLevel = config._logLevel
+    doCheck = False
     for ii in xrange(1, len(sys.argv)):
         if sys.argv[ii] == '--daemon':
             config._daemon = True
-            config._verbose = False
         elif sys.argv[ii] == '--verbose':
-            config._verbose = True
+            say("depricated: --verbose")
         elif sys.argv[ii] == '--debug':
             config._debug = True
             logLevel = logging.DEBUG
         elif sys.argv[ii] == '--check-config':
-            config._verbose = True
-            # read again with error reporting:
-            config = Config()
+            doCheck = True
             return
         elif sys.argv[ii] == '--version':
             say(VERSION_EXTENDED)
@@ -761,11 +762,23 @@ def main():
             usage()
         else:
             usage('unknown option: ' + sys.argv[ii])
+    if doCheck and logLevel < logging.WARNING:
+        logLevel = logging.WARNING
     if logLevel < logging.ERROR:
-        logging.basicConfig(filename='/tmp/pywwetha.log',level=logLevel)
-    if config._verbose:
-        say("Starting pywwetha with log level {:s}"
-            .format(logging.getLevelName(logLevel)))
+        for item in logging.root.handlers:
+            item.setLevel(logLevel)
+        logger.setLevel(logLevel)
+    if not config._daemon:
+        handler = logging.StreamHandler()
+        handler.setLevel(logLevel)
+        logger.addHandler(handler)
+    if doCheck:
+        # read again with error reporting:
+        config = Config()
+        
+    dateStr = time.ctime(time.time())
+    say("Starting pywwetha with log level {:s} {:s}".format(
+        logging.getLevelName(logLevel), dateStr))
     try:
         server = BaseHTTPServer.HTTPServer(('', config._port), WebServer)
         if not config._daemon:

@@ -1,3 +1,11 @@
+pywwetha (1.2.2) unstable; urgency=low
+
+  * logging to stdout (if not a daemon). fix: setting the level
+  * exception will be logged and shown (as page content)
+  * --verbose removed: replaced by logging
+
+ -- J. Hamatoma <hama@siduction.net>  Tue, 10 Sep 2013 11:37:34 +0200
+
 pywwetha (1.2.1) unstable; urgency=low
 
   * logging changed to python standard logging
