@@ -1,3 +1,9 @@
+pywwetha (1.2.3) UNRELEASED; urgency=low
+
+  * better send_error() implementation: correct html syntax
+
+ -- J. Hamatoma <hama@siduction.net>  Thu, 12 Sep 2013 21:28:35 +0200
+
 pywwetha (1.2.2) unstable; urgency=low
 
   * logging to stdout (if not a daemon). fix: setting the level

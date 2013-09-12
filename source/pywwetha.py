@@ -443,7 +443,24 @@ class Config:
 class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
     '''Implements a web server.
     '''
-    
+ 
+    def send_error(self, code, message=None):
+        self.error_message_format = '''<html>
+<head>
+<title>Error response</title>
+<head>
+<body>
+<h1>Error response</h1>
+<p>Error code %(code)d
+<p>Message:
+<pre>
+%(message)s
+</pre>
+</body>
+</html>
+'''
+        BaseHTTPServer.BaseHTTPRequestHandler.send_error(self, code, message)
+        
     def prepareWSGI(self, config, method):
         '''Does common things for calling WSGI.
         @param config:    configuration data
@@ -690,11 +707,11 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
                 self.sendFile(filename, mimeType)
                 
         except IOError:
-            self.send_error(404,'File Not Found: %s' % self.path)
+            self.send_error(404, "File Not Found: {:s}".format(self.path))
         except:
             logger.exception("page creation failed")
             content = "Server error in {:s}\n{:s}".format(
-                self.path, traceback.format_exc(5))
+                self.path, traceback.format_exc())
             self.send_error(500, content)
      
 
