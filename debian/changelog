@@ -1,3 +1,10 @@
+pywwetha (1.2.3) next; urgency=low
+
+  * rebuild and put in base/next
+  * closes #1345
+
+ -- Alf Gaida <agaida@siduction.org>  Wed, 09 Oct 2013 00:47:51 +0200
+
 pywwetha (1.2.2) unstable; urgency=low
 
   * logging to stdout (if not a daemon). fix: setting the level
