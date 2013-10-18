@@ -4,7 +4,7 @@ pywwetha (2013.10.18) next; urgency=low
 
  -- J. Hamatoma <hama@siduction.net>  Fri, 18 Oct 2013 20:39:33 +0200
 
-pywwetha (1.2.3) unstable; urgency=low
+pywwetha (1.2.4) unstable; urgency=low
 
   * better send_error() implementation: correct html syntax
 
