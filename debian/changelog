@@ -1,8 +1,14 @@
-pywwetha (1.2.3) UNRELEASED; urgency=low
+pywwetha (2013.10.18) unstable; urgency=low
+
+  * version number changed to date based schema
+
+ -- J. Hamatoma <hama@siduction.net>  Fri, 18 Oct 2013 20:39:33 +0200
+
+pywwetha (1.2.3) unstable; urgency=low
 
   * better send_error() implementation: correct html syntax
 
- -- J. Hamatoma <hama@siduction.net>  Thu, 12 Sep 2013 21:28:35 +0200
+ -- J. Hamatoma <hama@siduction.net>  Thu, 12 Sep 2013 21:30:10 +0200
 
 pywwetha (1.2.2) unstable; urgency=low
 
