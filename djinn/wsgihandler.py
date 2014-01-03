@@ -32,7 +32,7 @@ def decodeUrl(url):
     '''Decodes the special characters in an URL into normal UTF-8.
     @param url:     the url to decode
     '''
-    rc = unicode("")
+    rc = ""
     url = url.replace("+", " ")
     ix = last = 0
     while ix >= 0 and last < len(url):
@@ -43,7 +43,7 @@ def decodeUrl(url):
             rc += url[last:ix]
             hexNumber = url[ix+1:ix+3]
             cc = int(hexNumber, 16)
-            rc += unichr(cc)
+            rc += chr(cc)
             last = ix + 3
     return rc
 

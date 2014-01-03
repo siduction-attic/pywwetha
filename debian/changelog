@@ -1,3 +1,9 @@
+pywwetha (2014.01.03) unstable; urgency=low
+
+  * fix: decoding of %HH in URLs
+
+ -- J. Hamatoma <hama@siduction.net>  Fri, 03 Jan 2014 21:42:19 +0100
+
 pywwetha (2013.11.28) unstable; urgency=low
 
   * transfer to unstable
