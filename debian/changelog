@@ -1,3 +1,12 @@
+pywwetha (2014.01.28) unstable; urgency=medium
+
+  * fix: crash if sidu-manual is started after sidu-installer
+    reason: the python path has been extended only once per run
+    but it must be extended for each application
+  * closes: #1491
+
+ -- J. Hamatoma <hama@siduction.net>  Tue, 28 Jan 2014 21:10:39 +0100
+
 pywwetha (2014.01.03) unstable; urgency=low
 
   * fix: decoding of %HH in URLs

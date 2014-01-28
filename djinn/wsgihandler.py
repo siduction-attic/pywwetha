@@ -29,8 +29,10 @@ def findUrl(url):
 
  
 def decodeUrl(url):
-    '''Decodes the special characters in an URL into normal UTF-8.
+    '''Decodes the special characters in an URL into normal string.
+    Special chars are %hh where hh is a 2 digit hexadecimal number.
     @param url:     the url to decode
+    @return:        the decoded string
     '''
     rc = ""
     url = url.replace("+", " ")

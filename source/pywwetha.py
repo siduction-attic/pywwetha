@@ -325,8 +325,13 @@ class Config:
     def extendPythonPath(self):
         '''Extends the search path for modules from the configuration.
         '''
-        if not hasattr(self, "_hasPythonPath"):
-            self._hasPythonPath = True
+        init = hasattr(self, "_loadedApplications")
+        appl = self.getName()._name
+        contains = init and self._loadedApplications.find(appl) >= 0
+        if not contains:
+            if not init:
+                self._loadedApplications = " "
+            self._loadedApplications += " " + appl
             path = self.getItemOfHost('pythonPath')
             if path != None:
                 for item in re.split(r'[;:]', path):
