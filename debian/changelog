@@ -1,3 +1,10 @@
+pywwetha (2014.02.11) unstable; urgency=medium
+
+  * standard port changed to 80, standard listening ip is now 127.0.0.86
+  * userid and group id are configurable
+
+ -- J. Hamatoma <hama@siduction.net>  Wed, 12 Feb 2014 00:15:52 +0100
+
 pywwetha (2014.01.28) unstable; urgency=medium
 
   * fix: crash if sidu-manual is started after sidu-installer

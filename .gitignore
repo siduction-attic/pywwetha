@@ -1,6 +1,7 @@
 etc/pywwetha/sidu-installer.conf
 .project
 .pydevproject
+.settings
 debian/files
 debian/pywwetha.debhelper.log
 debian/pywwetha.postinst.debhelper
