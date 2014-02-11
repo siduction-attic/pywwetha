@@ -3,7 +3,7 @@
 if [ -n "$1" ] ; then
 	case "$1" in 
 	start|stop|restart|status|check-config|add-host)
-		cmd=$1
+                sudo service pywwetha "$1"
 		;;
 	*)
 		echo "unknown command! Use start stop status check-config add-host."
@@ -11,4 +11,3 @@ if [ -n "$1" ] ; then
 		;;
 	esac
 fi
-sudo /etc/init.d/pywwetha $cmd
