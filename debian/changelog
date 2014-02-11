@@ -1,3 +1,10 @@
+pywwetha (2014.02.11) next; urgency=medium
+
+  * remove debian/init 
+  * improve pywwetha.service
+
+ -- Alf Gaida <agaida@siduction.org>  Tue, 11 Feb 2014 01:22:10 +0100
+
 pywwetha (2014.01.28) unstable; urgency=medium
 
   * fix: crash if sidu-manual is started after sidu-installer
