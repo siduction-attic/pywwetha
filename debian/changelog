@@ -1,3 +1,11 @@
+pywwetha (2014.02.12) unstable; urgency=medium
+
+  * listening ip configurable
+  * userid and groupid changed after port binding
+  * systemd configuration
+
+ -- J. Hamatoma <hama@siduction.net>  Thu, 13 Feb 2014 20:37:00 +0100
+
 pywwetha (2014.02.11.1) next; urgency=medium
 
   * pywwetha-control modified (should be obsoleted)
@@ -10,6 +18,13 @@ pywwetha (2014.02.11) next; urgency=medium
   * improve pywwetha.service
 
  -- Alf Gaida <agaida@siduction.org>  Tue, 11 Feb 2014 01:22:10 +0100
+
+pywwetha (2014.02.11) unstable; urgency=medium
+
+  * standard port changed to 80, standard listening ip is now 127.0.0.86
+  * userid and group id are configurable
+
+ -- J. Hamatoma <hama@siduction.net>  Wed, 12 Feb 2014 00:15:52 +0100
 
 pywwetha (2014.01.28) unstable; urgency=medium
 

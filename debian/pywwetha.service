@@ -1,11 +1,8 @@
 [Unit]
 Description=pywwetha daemon
-After=network.target
 
 [Service]
-ExecStart=/usr/share/pywwetha/source/pywwetha.py 
-User=www-data
-Group=www-data
+ExecStart=/usr/share/pywwetha/source/pywwetha.py
 
 [Install]
 WantedBy=multi-user.target
