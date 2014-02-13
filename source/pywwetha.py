@@ -13,7 +13,7 @@ Created on 28.10.2011
 @author: Hamatoma
 '''
 
-import os, sys, re, subprocess, BaseHTTPServer, glob
+import os, sys, re, subprocess, BaseHTTPServer, glob, pwd, grp
 import logging, time
 import traceback
 
@@ -65,8 +65,11 @@ class Config:
         self._daemon = False
         self._translatePathInfo = None
         self._port = 80
+        self._listenerIp = "127.0.0.86"
         self._hosts = dict()
         self._currentHost = None
+        self._userId = None
+        self._groupId = None
         self._hosts['localhost'] = Host('localhost')
         configfiles = glob.glob('/etc/pywwetha/*.conf')
         for conf in configfiles:
@@ -164,8 +167,30 @@ class Config:
                                 sayError('%s-%d: wrong port: %s' % (name, lineNo, value))
                             else:
                                 say('%s=%s' % (var, value))
-                        elif var == 'user' or var == 'group':
-                            # Not used by the server:
+                        elif var == 'user':
+                            no = None
+                            try:
+                                no = pwd.getpwnam(value)[2]
+                            except:
+                                no = None
+                            if no == os.getuid():
+                                value += " unused"
+                            else:
+                                self._userId = no
+                            say("%{:s}={:s}".format(var, value))
+                        elif var == 'group':
+                            no = None
+                            try:
+                                no = grp.getgrnam(value)[2]
+                            except:
+                                no = None
+                            if no == os.getgid():
+                                value += " unused"
+                            else:
+                                self._groupId = no
+                            say('%s=%s' % (var, value))
+                        elif var == "listeningIp":
+                            self._listenerIp = value
                             say('%s=%s' % (var, value))
                         elif var == 'debug':
                             self._debug = re.match(r'[tT1]', value)
@@ -802,9 +827,16 @@ def main():
     say("Starting pywwetha with log level {:s} {:s}".format(
         logging.getLevelName(logLevel), dateStr))
     try:
-        server = BaseHTTPServer.HTTPServer(('', config._port), WebServer)
-        if not config._daemon:
-            say('Starting pywwetha on port %d (Ctrl-C to stop)' % config._port)
+        if config._listenerIp == None:
+            config._listenerIp = ""
+        server = BaseHTTPServer.HTTPServer((config._listenerIp, config._port), WebServer)
+        if config._groupId != None:
+            say("changing gid: {:d}".format(config._groupId))
+            os.setregid(config._groupId, config._groupId)
+        if config._userId != None:
+            say("changing uid: {:d}".format(config._userId))
+            os.setreuid(config._userId, config._userId)
+        say("listening on {:s}:{:d} ...".format(config._listenerIp, config._port))
         server.serve_forever()
     except KeyboardInterrupt:
         if not config._daemon:

@@ -6,3 +6,8 @@ export DH_VERBOSE=1
 
 %:
 	dh $@ --with systemd
+
+override_dh_clean:
+	find . -name \*.pyc | xargs rm -f
+	dh_clean
+	

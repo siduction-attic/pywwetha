@@ -1,0 +1,2 @@
+# Allows all users the usage of cmd as root without giving a password
+ALL  ALL=(root)NOPASSWD: /usr/bin/sidu-control

@@ -1,0 +1,61 @@
+#! /bin/bash
+
+CMD=$1
+case "$CMD" in
+systemctl)
+	if [ $(id -u) != "0" ] ; then
+		sudo $0 $*
+	else
+		PACKET=$1
+		SUBCMD=$2
+		if [ ! -e /etc/pywwetha/systemctl.d/$PACKET ] ; then
+			echo "Not a registered packet: $PACKET"
+			exit 2
+		else
+			case "$CMD" in
+			start|stop|status|restart)
+				systemctl $SUBCMD $PACKET.service
+				;;
+			*)
+				echo "unknown subcommand: $SUBCMD. Try start stop restart or status"
+				exit 3
+				;;
+			esac
+		fi	
+	fi
+	;;
+linkderef)
+	SUBCMD=$2
+	LINK=$(which $SUBCMD)
+	while [ True ] ; do
+		PARENTDIR=$(dirname $(dirname "$LINK") )
+		SUBDIR="$LINK"
+		LINK=$(readlink $LINK)
+		test -z "$LINK" && break
+		if [ $(expr $LINK : "[.][.]") != 0 ] ; then
+			LINK=${LINK/../$PARENTDIR}
+		fi
+	done
+	echo $SUBDIR
+	;;
+browser)
+	VIRTHOST=$2
+	SUBCOMMAND=$3
+	BASE=$4
+	sudo $0 systemctl pywwetha $SUBCOMMAND	
+	test -n "$BASE" && sudo $0 systemctl sidu-base $SUBCOMMAND	
+	if [ "$SUBCOMMAND" != stop ] ; then
+		if [ -n "${DISPLAY}" ] ; then
+		# Launches x-www-browser if we are in kde, xfce, lxde, rqt, gnome
+		        x-www-browser http://$VIRTHOST
+		else
+		# Launches www-browser (elinks) if we are in nox
+		        www-browser http://$VIRTHOST
+		fi
+	fi
+	;;
+*)
+	echo "unknown command: $CMD"
+	exit 1
+	;;
+esac
