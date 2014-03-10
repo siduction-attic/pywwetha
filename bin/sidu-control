@@ -1,23 +1,26 @@
 #! /bin/bash
 
+SCRIPT=$0
 CMD=$1
 case "$CMD" in
 systemctl)
 	if [ $(id -u) != "0" ] ; then
-		sudo $0 $*
+		sudo $SCRIPT $*
 	else
-		PACKET=$1
-		SUBCMD=$2
+		PACKET=$2
+		SUBCMD=$3
 		if [ ! -e /etc/pywwetha/systemctl.d/$PACKET ] ; then
-			echo "Not a registered packet: $PACKET"
+			echo "+++ sidu-control: Not a registered packet: $PACKET"
+			echo "+++ call: $SCRIPT $*"
 			exit 2
 		else
-			case "$CMD" in
+			case "$SUBCMD" in
 			start|stop|status|restart)
 				systemctl $SUBCMD $PACKET.service
 				;;
 			*)
-				echo "unknown subcommand: $SUBCMD. Try start stop restart or status"
+				echo "+++ sidu-control: unknown subcommand: $SUBCMD. Try start stop restart or status"
+				echo "+++ call: $SCRIPT $*"
 				exit 3
 				;;
 			esac
@@ -42,9 +45,9 @@ browser)
 	VIRTHOST=$2
 	SUBCOMMAND=$3
 	BASE=$4
-	sudo $0 systemctl pywwetha $SUBCOMMAND	
-	test -n "$BASE" && sudo $0 systemctl sidu-base $SUBCOMMAND	
-	if [ "$SUBCOMMAND" != stop ] ; then
+	sudo $SCRIPT systemctl pywwetha $SUBCOMMAND	
+	test -n "$BASE" && sudo $SCRIPT systemctl sidu-base $SUBCOMMAND	
+	if [ "$SUBCOMMAND" = start -o "$SUBCOMMAND" = restart ] ; then
 		if [ -n "${DISPLAY}" ] ; then
 		# Launches x-www-browser if we are in kde, xfce, lxde, rqt, gnome
 		        x-www-browser http://$VIRTHOST
@@ -55,7 +58,8 @@ browser)
 	fi
 	;;
 *)
-	echo "unknown command: $CMD"
+	echo "+++ sidu-control: unknown command: $CMD"
+	echo "+++ call: $SCRIPT $*"
 	exit 1
 	;;
 esac

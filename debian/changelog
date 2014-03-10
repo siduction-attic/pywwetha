@@ -4,7 +4,7 @@ pywwetha (2014.03.07) unstable; urgency=medium
 
  -- J. Hamatoma <hama@siduction.net>  Sun, 09 Mar 2014 01:48:34 +0100
 
-pywwetha (2014.03.07) unstable; urgency=medium
+pywwetha (2014.03.06) unstable; urgency=medium
 
   * listening ip configurable
   * userid and groupid changed after port binding
