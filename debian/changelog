@@ -1,3 +1,9 @@
+pywwetha (2014.03.30) unstable; urgency=medium
+
+  * crash if static file does not exist: wrong param type
+
+ -- J. Hamatoma <hama@siduction.net>  Sun, 30 Mar 2014 21:08:57 +0200
+
 pywwetha (2014.03.07) unstable; urgency=medium
 
   * using sidu-control

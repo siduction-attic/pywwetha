@@ -700,7 +700,7 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
                 application = module.application
                 response = application.__call__(self._wsgiEnvironment, self.startResponse)
                 if response == None:
-                    self.send_error("404 Not Found", "Address not found: {:s}"
+                    self.send_error(404, "Address not found: {:s}"
                         .format(self.path))
                 else:
                     self.handleContent(response)
@@ -737,7 +737,8 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
                 self.sendFile(filename, mimeType)
                 
         except IOError:
-            self.send_error(404, "File Not Found: {:s}".format(self.path))
+            msg = traceback.format_exc()
+            self.send_error(404, "File Not Found: {:s}\n{:s}".format(self.path, msg))
         except:
             logger.exception("page creation failed")
             content = "Server error in {:s}\n{:s}".format(
