@@ -1,3 +1,9 @@
+pywwetha (2014.04.06) unstable; urgency=medium
+
+  * service renamed from sidu-base to sidu-base-systemd
+
+ -- J. Hamatoma <hama@siduction.net>  Sun, 06 Apr 2014 20:53:48 +0200
+
 pywwetha (2014.03.30) unstable; urgency=medium
 
   * crash if static file does not exist: wrong param type

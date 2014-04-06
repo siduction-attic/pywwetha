@@ -46,7 +46,7 @@ browser)
 	SUBCOMMAND=$3
 	BASE=$4
 	sudo $SCRIPT systemctl pywwetha $SUBCOMMAND	
-	test -n "$BASE" && sudo $SCRIPT systemctl sidu-base $SUBCOMMAND	
+	test -n "$BASE" && sudo $SCRIPT systemctl sidu-base-systemd $SUBCOMMAND	
 	if [ "$SUBCOMMAND" = start -o "$SUBCOMMAND" = restart ] ; then
 		if [ -n "${DISPLAY}" ] ; then
 		# Launches x-www-browser if we are in kde, xfce, lxde, rqt, gnome
