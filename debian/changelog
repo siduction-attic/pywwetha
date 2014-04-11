@@ -1,3 +1,9 @@
+pywwetha (2014.04.10) unstable; urgency=medium
+
+  * sidu-base-systemd no longer exists
+
+ -- J. Hamatoma <hama@siduction.net>  Fri, 11 Apr 2014 23:50:19 +0200
+
 pywwetha (2014.04.06) unstable; urgency=medium
 
   * service renamed from sidu-base to sidu-base-systemd

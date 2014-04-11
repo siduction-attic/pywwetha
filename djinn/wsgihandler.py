@@ -4,7 +4,7 @@ Created on 07.09.2013
 @author: hm
 '''
 
-import logging
+import logging, os.path
 from django.http import HttpResponse, HttpResponsePermanentRedirect
 logger = logging.getLogger(__name__)
 
@@ -84,12 +84,16 @@ class WSGIHandler(object):
         rc = None
         if not "PATH_INFO" in self._environ:
             logger.error("missing PATH_INFO")
+            raise Exception("djinn.handle(): no PATH_INFO found")
         else:
             url = self._environ["PATH_INFO"]
+            if url == "/favicon.ico":
+                url = "/static/favicon.icon"
             headers = []
             info = findUrl(url)
             if info == None:
                 logger.error("Page not found: " + url)
+                raise Exception("djinn.handle(): no Page found: " + url)
             else:
                 handler = info._urlHandler
                 self._request.documentRoot = documentRoot
