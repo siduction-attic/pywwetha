@@ -1,6 +1,6 @@
 source			usr/share/pywwetha
 djinn			usr/share/pywwetha
 etc/pywwetha	etc
+etc/sidu-base	etc
 etc/sudoers.d	etc
 bin		usr
-

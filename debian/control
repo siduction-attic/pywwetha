@@ -17,6 +17,7 @@ Depends: ${misc:Depends},
 	python (>=2.0),
 	python-support (>= 0.90.0),
 	sudo (>=1.0),
+	sidu-base (>=2014.04.11),
 Description: simple webserver for static html, CGI and WSGI.
  This webserver can issue static files and CGI created pages.
  Main usage: Building dynamic pages for life CDs or local usage.
