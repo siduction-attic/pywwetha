@@ -5,8 +5,8 @@ Created on 07.09.2013
 '''
 
 import logging, os.path
-from django.http import HttpResponse, HttpResponsePermanentRedirect
-logger = logging.getLogger(__name__)
+from djinn.django.http import HttpResponse, HttpResponsePermanentRedirect
+logger = logging.getLogger("pywwetha")
 
 urlPatterns = []
 
@@ -25,6 +25,7 @@ def findUrl(url):
         if item._regExpr.search(url):
             rc = item
             break
+    logger.debug("findUrl(): '{:s}' rc: {:s}".format(url, repr(rc)))
     return rc
 
  

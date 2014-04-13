@@ -1,3 +1,9 @@
+pywwetha (2014.04.12) unstable; urgency=medium
+
+  * fix in permanent redirect
+
+ -- J. Hamatoma <hama@siduction.net>  Sun, 13 Apr 2014 21:15:39 +0200
+
 pywwetha (2014.04.11) unstable; urgency=medium
 
   * script sidu-control moved to sidu-base
