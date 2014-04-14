@@ -1,3 +1,11 @@
+pywwetha (2014.04.13) unstable; urgency=medium
+
+  * all djinn modules will be referenced by the prefix djinn.
+    (no extra entry .../djinn in sys.path)
+  * package info in djinn
+
+ -- J. Hamatoma <hama@siduction.net>  Mon, 14 Apr 2014 18:00:57 +0200
+
 pywwetha (2014.04.12) unstable; urgency=medium
 
   * fix in permanent redirect

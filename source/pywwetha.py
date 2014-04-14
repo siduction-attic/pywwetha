@@ -14,11 +14,11 @@ Created on 28.10.2011
 '''
 
 import os, sys, re, subprocess, BaseHTTPServer, glob, pwd, grp
-import logging, time
+import logging, time, importlib
 import traceback
 
-VERSION = '1.2.2'
-VERSION_EXTENDED = VERSION + ' (2013.09.10)' 
+VERSION = '2014.04.13'
+VERSION_EXTENDED = VERSION
 
 logger = logging.getLogger("pywwetha")
 
@@ -650,7 +650,12 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         # load or load again:
         if name not in sys.modules:
             log('importing ' + name)
-            __import__(name)
+            try:
+                importlib.import_module(name)
+            except ImportError:
+                paths = sys.path
+                logger.warning("module {:s} not found in {:s}\n{:s}".format(name, " ".join(paths), traceback.format_exc()))
+                raise
             module = sys.modules[name]
         
     def unloadPath(self, prefix):
@@ -675,28 +680,28 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         @param method: 'get' or 'post'
         @param config: configuration info
         '''
-        if not self.handleStatics(config):       
+        if not self.handleStatics(config):
+            pywwethaFound = False
             for path in sys.path:
-                if path.find("/pywwetha/") >= 0:
-                    if path.endswith("source"):
-                        path =  sys.path[0].replace("/source", "/djinn")
-                        logger.debug("python path has been extended: " + path)
-                        sys.path = [path] + sys.path
+                if path.endswith("/pywwetha"):
+                    pywwethaFound = True
                     break
+            if not pywwethaFound:
+                sys.path.insert(0, "/usr/share/pywwetha")
             item = config.getItemOfHost("documentRoot")
             if item not in sys.path:
                 logger.debug("python path has been extended: " + item)
                 sys.path = [item] + sys.path
             self.unloadDjango()
-            self.reloadModule("django.conf.urls", "djinnMarker")
-            self.reloadModule("django.http", "djinnMarker")
+            self.reloadModule("djinn.django.conf.urls", "djinnMarker")
+            self.reloadModule("djinn.django.http", "djinnMarker")
             module = self.importModule(config, "djinnUrls")
             if module != None:
                 self.prepareWSGI(config, method)
                 patterns = module.getPatterns()
-                module = self.getModule(config, "wsgihandler")
+                module = self.getModule(config, "djinn.wsgihandler")
                 module.urlPatterns = patterns
-                module = self.getModule(config, "application")
+                module = self.getModule(config, "djinn.application")
                 application = module.application
                 response = application.__call__(self._wsgiEnvironment, self.startResponse)
                 if response == None:
