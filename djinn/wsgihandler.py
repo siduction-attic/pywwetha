@@ -4,30 +4,17 @@ Created on 07.09.2013
 @author: hm
 '''
 
-import logging, os.path
+import logging, os.path, importlib
 from djinn.django.http import HttpResponse, HttpResponsePermanentRedirect
 logger = logging.getLogger("pywwetha")
 
-urlPatterns = []
-
-def findUrl(url):
-    '''Returns the first matching UrlInfo object.
-    @param url    the url to search
-    @return:     None: not found
-                 otherwise: an UrlInfo instance
+def dumpObj(obj):
+    '''Returns a string describing an object instance
+    @param obj:    object to describe
+    @return:     a string describing the object
     '''
-    global urlPatterns
-        
-    rc = None
-    if url.startswith("/"):
-        url = url[1:]
-    for item in urlPatterns:
-        if item._regExpr.search(url):
-            rc = item
-            break
-    logger.debug("findUrl(): '{:s}' rc: {:s}".format(url, repr(rc)))
-    return rc
-
+    return repr(obj)
+                
  
 def decodeUrl(url):
     '''Decodes the special characters in an URL into normal string.
@@ -58,12 +45,36 @@ class WSGIHandler(object):
     '''
 
 
-    def __init__(self):
+    def __init__(self, urlPatterns = None):
         '''Constructor.
         '''
+        if urlPatterns == None:
+            moduleName = os.environ["URL_MODULE"]
+            module = importlib.import_module(moduleName)
+            urlPatterns = module.getPatterns()
+        if urlPatterns[0] == '':
+            urlPatterns = urlPatterns[1:]
+        self._urlPatterns = urlPatterns
+        self._blockSize = 0x10000
         self._environ = None
         self._request = None
         
+    def findUrl(self, url):
+        '''Returns the first matching UrlInfo object.
+        @param url    the url to search
+        @return:     None: not found
+                     otherwise: an UrlInfo instance
+        '''
+        rc = None
+        if url.startswith("/"):
+            url = url[1:]
+        for item in self._urlPatterns:
+            if item._regExpr.search(url):
+                rc = item
+                break
+        if rc == None:
+            raise Exception("URL not found: urls" + dumpObj(self._urlPatterns))
+        return rc
            
     def putCookies(self, cookies):
         '''Write the cookies to the client.
@@ -76,11 +87,68 @@ class WSGIHandler(object):
         @param content:     the page content (normally HTML)
         '''
         pass
+
+    def findMime(self, filename):
+        '''Finds the MIME type of a filename.
+        @param fn:  filename (from the url)
+        @return:    the mime type
+        '''
+        node = os.path.basename(filename)
+        ix = node.rindex(".")
+        ext = "" if ix < 0 else node[ix+1:].lower()
+        if ext == "css":
+            rc = "text/css"
+        elif ext == "png":
+            rc = "image/png"
+        elif ext == "jpg":
+            rc = "image/jpg"
+        elif ext == "gif":
+            rc = "image/gif"
+        elif ext == "ico":
+            rc = "image/x-icon"
+        elif ext == "txt" or ext == "log":
+            rc = "text/plain"
+        elif ext == "htm" or ext == "html":
+            rc = "text/html"
+        else:
+            rc = "application/octet-stream"
+        return rc
+    
+    def handleStaticFiles(self, url, documentRoot, startResponse):
+        '''Handles a static file.
+        @param url:            the url of the static file, e.g. "/static/std.css"
+        @param documentRoot:   the base path of the application
+        @param startResponse:  a method which writes the HTTP header
+        @return: a list with the file's content (in 64 kiByte blocks)
+        '''
+        fn = documentRoot + url
+        if not os.path.exists(fn):
+            # CONTENT_LENGTH will be added by the caller! 
+            headers = [("Content-Type","text/plain")]
+            answer = "file not found: " + url + "\n"
+            startResponse.__call__(404, headers)
+            rc = [answer]
+        else:
+            mime = self.findMime(url)
+            rc = []
+            fp = open(fn, "r")
+            while True:
+                # performance: put 64k blocks into the output
+                part = fp.read(self._blockSize)
+                if len(part) == 0:
+                    break
+                else:
+                    rc.append(part)
+            fp.close()
+            headers = [("Content-Type", mime)]
+            startResponse.__call__(200, headers)
+        return rc
     
     def handle(self, application, documentRoot, startResponse):
         '''Handles a HTTP request.
         @param application:    the name of the application (is the virtual host)
         @param documentRoot:   the base path of the application
+        @param startResponse:  a method which writes the HTTP header
         '''
         rc = None
         if not "PATH_INFO" in self._environ:
@@ -91,7 +159,7 @@ class WSGIHandler(object):
             if url == "/favicon.ico":
                 url = "/static/favicon.icon"
             headers = []
-            info = findUrl(url)
+            info = self.findUrl(url)
             if info == None:
                 logger.error("Page not found: " + url)
                 raise Exception("djinn.handle(): no Page found: " + url)

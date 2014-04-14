@@ -1,3 +1,15 @@
+pywwetha (2014.04.14.02) unstable; urgency=medium
+
+  * wsgihandler changed: 2 args
+
+ -- J. Hamatoma <hama@siduction.net>  Mon, 14 Apr 2014 23:17:24 +0200
+
+pywwetha (2014.04.14) unstable; urgency=medium
+
+  * djinn corrections 
+
+ -- J. Hamatoma <hama@siduction.net>  Mon, 14 Apr 2014 21:03:18 +0200
+
 pywwetha (2014.04.13) unstable; urgency=medium
 
   * all djinn modules will be referenced by the prefix djinn.

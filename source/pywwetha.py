@@ -124,7 +124,7 @@ class Config:
             vhostMatcher = re.compile(r'([-a-zA-z0-9._]+):(\w+)\s*=\s*(.*)')
             varMatcher = re.compile(r'(\w+)\s*=\s*(.*)')
             itemMatcher = re.compile(
-                r'(documentRoot|cgiProgram|cgiArgs|cgiExt|index|djangoRoot|djinnUrls|pythonPath|wsgiStaticPagePrefix)$')
+                r'(documentRoot|cgiProgram|cgiArgs|cgiExt|index|djangoRoot|djinnUrls|djinnBase|pythonPath|wsgiStaticPagePrefix)$')
             lineNo = 0
             for line in handle:
                 lineNo += 1
@@ -211,12 +211,14 @@ class Config:
                             sayError("%s-%d: unknown var: %s" % (name, lineNo, var))
             handle.close()
              
-    def getItemOfHost(self, name):
+    def getItemOfHost(self, name, defaultValue = None):
         '''Returns the specified item of the current virtual host.
-        @param name: the name of the item
-        @return: None: undefined item. Otherwise: the value of the item 
+        @param name:             the name of the item
+        @param defaultValue:     result if the item can not be found
+        @return:                 defaultValue: undefined item.<br>
+                                 Otherwise: the value of the item 
         '''
-        rc = None
+        rc = defaultValue
         host = self._currentHost
         if host == None:
             host = self._hosts['localhost']
@@ -548,9 +550,7 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         '''
         rc = False
         if self.path.startswith('/static/') or self.path == "/favicon.ico":
-            prefix = config.getItemOfHost('wsgiStaticPagePrefix')
-            if prefix == None:
-                prefix = ''
+            prefix = config.getItemOfHost('wsgiStaticPagePrefix', "")
             filename = config.getItemOfHost('documentRoot') + prefix + self.path
             mimeType = config.getMimeType(filename)
             self.sendFile(filename, mimeType)
@@ -575,15 +575,24 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         '''Handles the content of a HttpResponse.
         @param response:    a HttpResponse (or similar) instance
         '''
-        if not hasattr(response, 'content'):
-            self.end_headers()
-        else:
+        if hasattr(response, 'content'):
             content = response.content.encode("utf-8")
             length = len(content)
             self.send_header('Content-Length', str(length))
             # @ToDo: writing cookies
             self.end_headers()
             self.wfile.write(content)
+        elif type(response) == list:
+            total = 0
+            for line in response:
+                total += len(line)
+            self.send_header('Content-Length', str(total))
+            # @ToDo: writing cookies
+            self.end_headers()
+            for line in response:
+                self.wfile.write(line)            
+        else:
+            self.end_headers()
             
          
     def handleWSGI(self, method, config):
@@ -680,28 +689,33 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         @param method: 'get' or 'post'
         @param config: configuration info
         '''
-        if not self.handleStatics(config):
-            pywwethaFound = False
+        if not self.handleStatics(config):  
+            logger.debug("sys.log:\n" + "\n".join(sys.path))     
             for path in sys.path:
-                if path.endswith("/pywwetha"):
-                    pywwethaFound = True
+                if path.find("/pywwetha/") >= 0:
+                    if path.endswith("source"):
+                        path =  sys.path[0].replace("/source", "/djinn")
+                        logger.debug("python path has been extended: " + path)
+                        sys.path = [path] + sys.path
                     break
-            if not pywwethaFound:
-                sys.path.insert(0, "/usr/share/pywwetha")
             item = config.getItemOfHost("documentRoot")
             if item not in sys.path:
                 logger.debug("python path has been extended: " + item)
-                sys.path = [item] + sys.path
+                sys.path.insert(0, item)
             self.unloadDjango()
             self.reloadModule("djinn.django.conf.urls", "djinnMarker")
             self.reloadModule("djinn.django.http", "djinnMarker")
+            djinnBase = config.getItemOfHost("djinnBase", "djinn")
+            urlModule = config.getItemOfHost("djinnUrls")
+            os.environ["URL_MODULE"] = urlModule
+            os.environ["DJINN_BASE"] = djinnBase
             module = self.importModule(config, "djinnUrls")
             if module != None:
                 self.prepareWSGI(config, method)
                 patterns = module.getPatterns()
-                module = self.getModule(config, "djinn.wsgihandler")
+                module = self.getModule(config, djinnBase + ".wsgihandler")
                 module.urlPatterns = patterns
-                module = self.getModule(config, "djinn.application")
+                module = self.getModule(config, djinnBase + ".application")
                 application = module.application
                 response = application.__call__(self._wsgiEnvironment, self.startResponse)
                 if response == None:
@@ -725,7 +739,7 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         global config
         config.setVirtualHost(self.headers.dict['host'])
         if self.path == '/':
-            self.path = '/' + config.getItemOfHost('index')
+            self.path = '/' + config.getItemOfHost('index', "home")
         say(self.raw_requestline[0:-1])
         try:
             if config.isDjango():
@@ -790,7 +804,8 @@ def main():
     fnLog = "/tmp/pywwetha.log"
     if os.path.exists(fnLog):
         os.unlink(fnLog)
-    logging.basicConfig(filename=fnLog, level=logging.ERROR)
+    level = logging.DEBUG if "DEBUG" in os.environ else logging.ERROR
+    logging.basicConfig(filename=fnLog, level=level)
     config = Config()
     logLevel = config._logLevel
     doCheck = False
