@@ -690,14 +690,20 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         @param config: configuration info
         '''
         if not self.handleStatics(config):  
-            logger.debug("sys.log:\n" + "\n".join(sys.path))     
-            for path in sys.path:
-                if path.find("/pywwetha/") >= 0:
-                    if path.endswith("source"):
-                        path =  sys.path[0].replace("/source", "/djinn")
-                        logger.debug("python path has been extended: " + path)
-                        sys.path = [path] + sys.path
-                    break
+            logger.debug("sys.log:\n" + "\n".join(sys.path))  
+            found = False   
+            ix = len(sys.path)
+            while ix > 0:
+                ix -= 1
+                path = sys.path[ix]
+                if path.find("pywwetha") >= 0:
+                    found = True
+                    if path.endswith("/pywwetha/source"):
+                        path = path[0:-7]
+                        sys.path[ix] = path
+                        break
+            if not found:
+                sys.path.insert(0, "/usr/share/pywwetha")
             item = config.getItemOfHost("documentRoot")
             if item not in sys.path:
                 logger.debug("python path has been extended: " + item)
