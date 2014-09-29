@@ -1,11 +1,8 @@
 [Unit]
-Description=pywwetha daemon
+Description=pywwetha minimal webserver daemon
 
 [Service]
 ExecStart=/usr/share/pywwetha/source/pywwetha.py
 
 [Install]
 WantedBy=multi-user.target
-
-[Socket]
-ListenStream=80
