@@ -59,6 +59,15 @@ class WSGIHandler(object):
         self._environ = None
         self._request = None
         
+    def dumpUrl(self, urls):
+        '''Dumps the url list.
+        @return: a string describing the urls
+        '''
+        rc = ""
+        for item in urls:
+            rc += "{:s}: {:s}\n".format(item._regExpr.pattern, item._name)
+        return rc
+    
     def findUrl(self, url):
         '''Returns the first matching UrlInfo object.
         @param url    the url to search
@@ -73,7 +82,7 @@ class WSGIHandler(object):
                 rc = item
                 break
         if rc == None:
-            raise Exception("URL not found: urls" + dumpObj(self._urlPatterns))
+            raise Exception("URL not found: " + url + " urls" + self.dumpUrl(self._urlPatterns))
         return rc
            
     def putCookies(self, cookies):

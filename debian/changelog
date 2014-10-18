@@ -1,3 +1,16 @@
+pywwetha (2014.10.22) unstable; urgency=medium
+
+  * application will be loaded once only
+  * the python path will be extended once only for each application
+  * module reloading removed because it is impossible.
+    Now the Python path of each used module  must be 
+    unique so that applications can be treated in parallel
+  * prior handling of not existing static files 
+  * refactoring: functionality moved from Config to Host
+  * better info (dump) when an url is not found 
+
+ -- J. Hamatoma <hama@siduction.net>  Wed, 22 Oct 2014 19:03:23 +0200
+
 pywwetha (2014.09.29) unstable; urgency=medium
 
   * error in systemd config: [Socket] not in pywwetha.service

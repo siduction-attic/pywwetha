@@ -16,8 +16,9 @@ Created on 28.10.2011
 import os, sys, re, subprocess, BaseHTTPServer, glob, pwd, grp
 import logging, time, importlib
 import traceback
+import djinn.wsgihandler
 
-VERSION = '2014.04.13'
+VERSION = '2014.10.22'
 VERSION_EXTENDED = VERSION
 
 logger = logging.getLogger("pywwetha")
@@ -43,15 +44,349 @@ def sayError(msg):
 def log(msg):
     logger.info(msg)
         
+def errorMessage(self, msg):
+    '''Builds a html page with an error message.
+    @param msg    error message
+    @return: a valid html page with the error message
+    '''
+    rc = '''
+<html>
+<body>
+</body>
+<h1>Webserver Problem (pywwetha)</h1>
+<p>%s</p>
+</html>
+        ''' % msg
+    return rc
+    
+
 class Host:
     '''Holds the data of a virtual host
     '''
-    def __init__(self, name):
+    def __init__(self, name, config):
         '''Constructor.
         @param name: the name of the virtual host 
         '''
         self._name = name
+        self._port = 80
         self._items = dict()
+        self._urlMatcher = None
+        self._config = config
+        self._application = None
+ 
+    def getItem(self, name, defaultValue = None):
+        '''Returns a property of the host.
+        @param name:        name of the property
+        @param defaultValue if the property does not exist this
+                            value will be returned
+        @return: the property value or the default value
+        '''
+        rc = self._items[name] if name in self._items else defaultValue
+        return rc
+
+    def isCgi(self, name):
+        '''Tests whether a resource is a cgi script.
+        @param name: the resource name
+        @return: True: the resource is a cgi script. False: otherwise
+        '''
+        pattern = '\.(' + self.getItem('cgiExt') + ')' 
+        matcher = re.search(pattern, name)
+        rc = matcher != None
+        return rc
+ 
+    def isDjango(self):
+        rc = self.getItem('cgiProgram') == 'django'
+        return rc
+    
+    def isDjinn(self):
+        rc = self.getItem('cgiProgram') == 'djinn'
+        return rc
+    
+    def isWSGI(self):
+        rc = self.getItem('cgiProgram') == 'WSGI'
+        return rc
+
+    def getHeader(self, webServer, key):
+        '''Returns a value of the headers.
+        The key will be compared case insensitive.
+        @param webServer: the webServer with the headers
+        @param key:    the key to search for
+        @return: None key not found. Otherwise: the value
+        '''
+        rc = None
+        key = key.lower()
+        for key1 in webServer.headers.dict.iterkeys():
+            if key1.lower() == key:
+                rc = webServer.headers.dict[key1]
+                break
+        return rc
+    
+    def buildMeta(self, method, webServer, environment):
+        '''Builds the meta info of the CGI / WSDI program.
+        @param environment: the dictionary to fill
+        '''
+        docRoot = self.getItem('documentRoot')
+        # Necessary for running php-cgi:
+        environment['REDIRECT_STATUS'] = '1'
+        environment['HTTP_HOST'] = self._name
+        environment['REMOTE_ADDR'] = webServer.client_address[0]
+        environment['REMOTE_PORT'] = webServer.client_address[1]
+        value = self.getHeader(webServer, 'user-agent')
+        if value != None:
+            environment['HTTP_USER_AGENT'] = value
+        value = self.getHeader(webServer, 'accept-language')
+        if value != None:
+            environment['HTTP_ACCEPT_LANGUAGE'] = value
+        environment['SERVER_ADDR'] = '127.0.0.1'
+        environment['SERVER_NAME'] = self._name
+        environment['SERVER_PORT'] = self._port
+        environment['DOCUMENT_ROOT'] = docRoot
+        if config._debug:
+            flags = os.getenv('TRACE_FLAGS')
+            if flags == None:
+                flags = '*'
+            environment['TRACE_FLAGS'] = flags
+            say('TraceFlags: ' + flags)
+            
+        pathInfo = environment['PATH_INFO'] if 'PATH_INFO' in environment else ""
+        if pathInfo == None:
+            pathInfo = ""
+        environment['PATH_TRANSLATED'] = docRoot + pathInfo
+        environment['REQUEST_METHOD'] = method
+        environment['CONTENT_LENGTH'] = 0
+        environment['wsgi.input'] = webServer.rfile
+        environment['wsgi.errors'] = sys.stdout
+        environment['wsgi.multithread'] = False
+        environment['wsgi.multiprocess'] = False
+        environment['wsgi.run_once'] = False
+
+    def splitUrl(self, method, path, script, environment):
+        '''Splits the URL into its parts.
+        The parts will be stored in <code>environment</code>.
+        @param method: 'get' or 'post'
+        @param path: the url without protocol, host and port
+        @param defaultScript: the script name (URL) if it cannot retrieved by the URL
+        @param environment: a dictionary containing the values to change
+        '''
+        matcher = self._urlMatcher.match(path)
+        docRoot = self.getItem('documentRoot') 
+        if matcher == None:
+            environment['REQUEST_METHOD'] = method
+            environment['SCRIPT_FILENAME'] = docRoot + path
+            environment['QUERY_STRING'] = '' 
+            environment['REQUEST_URI'] = path
+            environment['SCRIPT_NAME'] = script
+            environment['PATH_INFO'] = path
+        else:
+            environment['SCRIPT_FILENAME'] = docRoot + matcher.group(1)
+            query = matcher.group(6)
+            environment['QUERY_STRING'] = query 
+            environment['REQUEST_URI'] = path
+            environment['SCRIPT_NAME'] = matcher.group(1)
+            pathInfo = matcher.group(4)
+            environment['PATH_INFO'] = pathInfo
+            
+    def extendPythonPath(self):
+        '''Extends the search path for modules from the configuration.
+        '''
+        path = self.getItem('pythonPath')
+        if path != None:
+            ix = 0
+            for item in re.split(r'[;:]', path):
+                if item not in sys.path:
+                    logger.debug("python path has been extended: " + item)
+                    sys.path.insert(ix, item)
+                    ix += 1
+            # remove source/pywwetha from the scriptname:
+            base = os.path.dirname(os.path.dirname(sys.argv[0]))
+            if path not in sys.path:
+                sys.path.insert(ix, base)
+        item = self.getItem('documentRoot')
+        if item not in sys.path:
+            sys.path.insert(0, item)
+ 
+    def handleStatics(self, webServer):
+        '''Handles request of static content if the request is static.
+        @return:     True: request has been static and is handled.
+                     False: otherwise
+        '''
+        rc = False
+        if webServer.path.startswith('/static/') or webServer.path == "/favicon.ico":
+            prefix = self.getItem('wsgiStaticPagePrefix', "")
+            filename = self.getItem('documentRoot') + prefix + webServer.path
+            mimeType = self._config.getMimeType(filename)
+            if not os.path.exists(filename):
+                log("file not found: " + filename)
+            else:
+                webServer.sendFile(filename, mimeType)
+            rc = True
+        return rc
+        
+    def runCgi(self, method, webServer):
+        '''Runs the cgi program and writes the result.
+        @param method: 'get' or 'post'
+        @param webServer: the webServer
+        '''
+        config = self._config
+        self.buildMeta(method, webServer, config._server, config)
+        self.splitUrl(method, webServer.path, webServer.path, config._server)
+        for key, value in config._server.iteritems():
+            if value == None:
+                value = '' 
+            os.environ[key] = str(value)
+            if config._verbose: 
+                log(key + "=" + str(value))
+        filename = config._server['SCRIPT_FILENAME']
+        say('Script: ' + filename)
+        args = self.getItem('cgiArgs')
+        args = re.split(r'\|', args)
+        for ii in xrange(len(args)):
+            if args[ii] == '${file}':
+                args[ii] = filename
+        prog = self.getItem('cgiProgram')
+        if not os.path.exists(prog):
+            content = errorMessage('cgi program not found: ' + prog)
+        else:
+            args.insert(0, prog)
+            
+            process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            output = process.communicate()
+            content = output[0]
+            err = output[1]
+            if config._debug and err != None and len(err) > 0:
+                say('Error(s) found')
+                err = str(err)
+                say(err[0:160])
+                ix = content.find('</body>')
+                if ix < 0:
+                    content = errorMessage(
+                        "cgi program %s find errors:\n %s" % (prog, str(err)))
+                else:
+                    content = (content[0:ix] + "<pre>CGI-ERRORS:\n"
+                        + err + "\n</pre>\n" + content[ix+7:])
+        if content.find('Status:') != 0:
+            webServer.send_response(200)
+            if content.find('Content-type: ') < 0:
+                say("Content type not found. Generating...")
+                mimeType = 'text/html'
+                webServer.send_header('Content-type', mimeType)
+            webServer.end_headers()
+            webServer.wfile.write(content)
+            say('Content: ' + content[0:80] + '...')
+        else:
+            lines = content.split("\n")
+            cols = lines[0].split(" ")
+            status = int(cols[1])
+            webServer.send_response(status)
+            for ii in xrange(len(lines)):
+                if ii > 0:
+                    line = lines[ii].rstrip()
+                    index = line.find(': ')
+                    if index > 0:
+                        say(line)
+                        webServer.send_header(line[0:index], line[index+1:])
+            webServer.end_headers()
+
+    def importModule(self, key):
+        '''Calls a module given by an entry of the config.
+        @param config:    the configuration data
+        @param key:       the name of the entry in the config
+        @return:          None: module not found
+                          otherwise: the loaded module
+        '''
+        module = self.getItem(key)
+        if module == None:
+            errorMessage('{:s} not found in {:}'.format(key,
+                self._name))
+        else:
+            module = self.getModule(module) 
+        return module
+
+    def getModule(self, name):
+        '''Gets a module by name.
+        If not loaded it will be loaded.
+        @param config: the configuration info for the application subsystem
+        @param name:    the name of the module
+        @return:        the module
+        '''
+        if name not in sys.modules:
+            log('importing ' + name)
+            __import__(name)
+        module = sys.modules[name]
+        return module
+
+    def runWSGI(self, module, webServer):
+        '''Starts the application using the WebServerGatewayInterface.
+        @param config: the configuration info for the application subsystem
+        @param module: the module containing the WSGI definitions.<br>
+                        May be a path like main.wsgi. Will be imported
+        @param method: 'get' or 'post'
+        @return:        the answer of the WSGI application: WsgiResponse...
+        '''
+        module = self.getModule(module)
+        application = module.application
+        
+        response = application.__call__(webServer._wsgiEnvironment, 
+                webServer._startResponse)
+        return response
+
+         
+    def handleWSGI(self, method, webServer):
+        '''Handles a WSGI application.
+        @param method: 'get' or 'post'
+        @param config: configuration info
+        '''
+        if not self.handleStatics(webServer):
+            self.prepareWSGI(method)
+            response = self.runWSGI(config, "wsgi", webServer)
+            webServer.handleContent(response)
+    
+    def handleDjango(self, method, webServer):
+        '''Handles a Python Django application.
+        @param method: 'get' or 'post'
+        @param config: configuration info
+        '''
+        if not self.handleStatics(webServer):
+            self.prepareWSGI(method)
+            name = config.getItemOfHost("djangoRoot")
+            response = self.runWSGI(config, name)
+            self.handleContent(response)
+        
+    def prepareWSGI(self, method, webServer):
+        '''Does common things for calling WSGI.
+        @param config:    configuration data
+        @param method:    get or post
+        '''
+        environment = {}
+        self.buildMeta(method, webServer, environment)
+        # e.g. "GET /home HTTP/1.1"
+        pathInfo = re.split(' ', webServer.raw_requestline)[1]
+        script = self.getItem('documentRoot') + '/wsgi.py'
+        environment['REQUEST_METHOD'] = method
+        environment['SCRIPT_FILENAME'] = script
+        ix = pathInfo.find('?')
+        environment['QUERY_STRING'] = '' if ix < 0 else pathInfo[ix+1:] 
+        environment['REQUEST_URI'] = pathInfo
+        environment['SCRIPT_NAME'] = "/wsgi.py"
+        environment['PATH_INFO'] = pathInfo
+        webServer._wsgiEnvironment = environment
+        
+    def handleDjinn(self, method, webServer):
+        '''Handles a Djinn application. 
+        Djinn is a replacement of Django.
+        @param method: 'get' or 'post'
+        @param webServer: the web server instance
+        '''
+        if not self.handleStatics(webServer):  
+            if self._application != None:
+                self.prepareWSGI(method, webServer)
+                response = self._application.__call__(webServer._wsgiEnvironment, webServer.startResponse)
+                if response == None:
+                    webServer.send_error(404, "Address not found: {:s}"
+                        .format(webServer.path))
+                else:
+                    webServer.handleContent(response)
+        pass
         
 class Config:
     '''Manages the configuration data
@@ -67,10 +402,9 @@ class Config:
         self._port = 80
         self._listenerIp = "127.0.0.86"
         self._hosts = dict()
-        self._currentHost = None
         self._userId = None
         self._groupId = None
-        self._hosts['localhost'] = Host('localhost')
+        self._hosts['localhost'] = Host('localhost', self)
         configfiles = glob.glob('/etc/pywwetha/*.conf')
         for conf in configfiles:
             self.readConfig(conf)
@@ -94,8 +428,8 @@ class Config:
         self._environ = os.environ
         os.environ.clear()
      
-    def getName(self):
-        rc = self._currentHost if self._currentHost else 'localhost'
+    def getName(self, currentHost):
+        rc = currentHost._name if currentHost != None else 'localhost'
         return rc
   
     def postRead(self):
@@ -105,12 +439,20 @@ class Config:
         extDefault = 'php'
         if item in self._hosts['localhost']._items:
             extDefault = self._hosts['localhost']._items[item]
-        for host in self._hosts:
+        for hostname in self._hosts:
             ext = extDefault
-            if item in self._hosts[host]._items:
-                ext = self._hosts[host]._items[item]
+            host = self._hosts[hostname]
+            if item in host._items:
+                ext = host._items[item]
             pattern = "(.*[.](%s))((/[^?]+)?(\?(.*)))?" % ext
-            self._hosts[host]._urlMatcher = re.compile(pattern)
+            host._urlMatcher = re.compile(pattern)
+            host.extendPythonPath()
+            if host.isDjinn():
+                module = host.importModule("djinnUrls")
+                if module != None:
+                    host._application = djinn.wsgihandler.WSGIHandler(
+                            module.getPatterns())
+
    
     def readConfig(self, name):
         '''Reads the configuration file.
@@ -139,7 +481,7 @@ class Config:
                     if vhost in self._hosts:
                         host = self._hosts[vhost]
                     else:
-                        host = Host(vhost)
+                        host = Host(vhost, self)
                         self._hosts[vhost] = host
                         
                     if itemMatcher.match(var) != None:
@@ -210,26 +552,7 @@ class Config:
                         else:
                             sayError("%s-%d: unknown var: %s" % (name, lineNo, var))
             handle.close()
-             
-    def getItemOfHost(self, name, defaultValue = None):
-        '''Returns the specified item of the current virtual host.
-        @param name:             the name of the item
-        @param defaultValue:     result if the item can not be found
-        @return:                 defaultValue: undefined item.<br>
-                                 Otherwise: the value of the item 
-        '''
-        rc = defaultValue
-        host = self._currentHost
-        if host == None:
-            host = self._hosts['localhost']
-        if name in host._items:
-            rc = host._items[name]
-        else:
-            host = self._hosts['localhost']
-            if name in host._items:
-                rc = host._items[name]
-        return rc
-    
+               
     def getMimeType(self, name):
         '''Finds the mime type.
         @param name: the resource name
@@ -240,43 +563,6 @@ class Config:
             rc = self._mimeTypes[matcher.group(1)]
         else:
             rc = None
-        return rc
-    
-    def isCgi(self, name):
-        '''Tests whether a resource is a cgi script.
-        @param name: the resource name
-        @return: True: the resource is a cgi script. False: otherwise
-        '''
-        pattern = '\.(' + self.getItemOfHost('cgiExt') + ')' 
-        matcher = re.search(pattern, name)
-        rc = matcher != None
-        return rc
- 
-    def isDjango(self):
-        rc = self.getItemOfHost('cgiProgram') == 'django'
-        return rc
-    
-    def isDjinn(self):
-        rc = self.getItemOfHost('cgiProgram') == 'djinn'
-        return rc
-    
-    def isWSGI(self):
-        rc = self.getItemOfHost('cgiProgram') == 'WSGI'
-        return rc
-   
-    def errorMessage(self, msg):
-        '''Builds a html page with an error message.
-        @param msg    error message
-        @return: a valid html page with the error message
-        '''
-        rc = '''
-<html>
-<body>
-</body>
-<h1>Webserver Problem (pywwetha)</h1>
-<p>%s</p>
-</html>
-        ''' % msg
         return rc
     
     def splitUrlRaw(self, method, path, script, environment):
@@ -293,184 +579,22 @@ class Config:
         environment['SCRIPT_NAME'] = "/" + os.path.basename(script)
         environment['PATH_INFO'] = path
         
-    def splitUrl(self, method, path, script, environment):
-        '''Splits the URL into its parts.
-        The parts will be stored in <code>environment</code>.
-        @param method: 'get' or 'post'
-        @param path: the url without protocol, host and port
-        @param defaultScript: the script name (URL) if it cannot retrieved by the URL
-        @param environment: a dictionary containing the values to change
-        '''
-        matcher = self._currentHost._urlMatcher.match(path)
-        docRoot = self.getItemOfHost('documentRoot') 
-        if matcher == None:
-            environment['REQUEST_METHOD'] = method
-            environment['SCRIPT_FILENAME'] = docRoot + path
-            environment['QUERY_STRING'] = '' 
-            environment['REQUEST_URI'] = path
-            environment['SCRIPT_NAME'] = script
-            environment['PATH_INFO'] = path
-        else:
-            environment['SCRIPT_FILENAME'] = docRoot + matcher.group(1)
-            query = matcher.group(6)
-            environment['QUERY_STRING'] = query 
-            environment['REQUEST_URI'] = path
-            environment['SCRIPT_NAME'] = matcher.group(1)
-            pathInfo = matcher.group(4)
-            environment['PATH_INFO'] = pathInfo
-            
-    def setVirtualHost(self, host):
+    def getCurrentHost(self, host):
         '''Sets the current virtual host.
         @param host: the host expression, e.g. abc:8086
         '''
         hostinfo = re.split(':', host)
         hostname = hostinfo[0]
-        self._currentPort = hostinfo[1] if len(hostinfo) > 1 else str(self._port)
-        if len(self._currentPort) == 0:
-            self._currentPort = 80
+        port = hostinfo[1] if len(hostinfo) > 1 else str(self._port)
+        port = 80 if len(port) == 0 else int(port)
         if not hostname in self._hosts:
             hostname = 'localhost'
-        self._currentHost = self._hosts[hostname]
-        logger.debug("Virtual host {:s} recognized as {:s}".format(host, hostname))
-
-        
-    def getHeader(self, server, key):
-        '''Returns a value of the headers.
-        The key will be compared case insensitive.
-        @param server: the server with the headers
-        @param key:    the key to search for
-        @return: None key not found. Otherwise: the value
-        '''
-        rc = None
-        key = key.lower()
-        for key1 in server.headers.dict.iterkeys():
-            if key1.lower() == key:
-                rc = server.headers.dict[key1]
-                break
+        rc = self._hosts[hostname]
+        rc._port = port
+        logger.debug("Virtual host {:s} recognized as {:s}:{:d}".format(
+                host, hostname, port))
         return rc
-    
-    def extendPythonPath(self):
-        '''Extends the search path for modules from the configuration.
-        '''
-        init = hasattr(self, "_loadedApplications")
-        appl = self.getName()._name
-        contains = init and self._loadedApplications.find(appl) >= 0
-        if not contains:
-            if not init:
-                self._loadedApplications = " "
-            self._loadedApplications += " " + appl
-            path = self.getItemOfHost('pythonPath')
-            if path != None:
-                for item in re.split(r'[;:]', path):
-                    if item not in sys.path:
-                        logger.debug("python path has been extended: " + item)
-                        sys.path = [item] + sys.path
- 
-    def buildMeta(self, method, server, environment):
-        '''Builds the meta info of the CGI / WSDI program.
-        @param environment: the dictionary to fill
-        '''
-        docRoot = self.getItemOfHost('documentRoot')
-        # Necessary for running php-cgi:
-        environment['REDIRECT_STATUS'] = '1'
-        environment['HTTP_HOST'] = self._currentHost._name # + ':' + self._currentPort
-        environment['REMOTE_ADDR'] = server.client_address[0]
-        environment['REMOTE_PORT'] = server.client_address[1]
-        value = self.getHeader(server, 'user-agent')
-        if value != None:
-            environment['HTTP_USER_AGENT'] = value
-        value = self.getHeader(server, 'accept-language')
-        if value != None:
-            environment['HTTP_ACCEPT_LANGUAGE'] = value
-        environment['SERVER_ADDR'] = '127.0.0.1'
-        environment['SERVER_NAME'] = self._currentHost._name
-        environment['SERVER_PORT'] = self._currentPort
-        environment['DOCUMENT_ROOT'] = docRoot
-        if self._debug:
-            flags = os.getenv('TRACE_FLAGS')
-            if flags == None:
-                flags = '*'
-            environment['TRACE_FLAGS'] = flags
-            say('TraceFlags: ' + flags)
-            
-        pathInfo = environment['PATH_INFO'] if 'PATH_INFO' in environment else ""
-        if pathInfo == None:
-            pathInfo = ""
-        environment['PATH_TRANSLATED'] = docRoot + pathInfo
-        environment['REQUEST_METHOD'] = method
-        environment['CONTENT_LENGTH'] = 0
-        environment['wsgi.input'] = server.rfile
-        environment['wsgi.errors'] = sys.stdout
-        environment['wsgi.multithread'] = False
-        environment['wsgi.multiprocess'] = False
-        environment['wsgi.run_once'] = False
-         
-    def runCgi(self, method, server):
-        '''Runs the cgi program and writes the result.
-        @param method: 'get' or 'post'
-        @param server: the server
-        '''
-        self.buildMeta(method, server, self._server)
-        self.splitUrl(method, server.path, server.path, self._server)
-        for key, value in self._server.iteritems():
-            if value == None:
-                value = '' 
-            os.environ[key] = str(value)
-            if self._verbose: 
-                log(key + "=" + str(value))
-        filename = self._server['SCRIPT_FILENAME']
-        say('Script: ' + filename)
-        args = self.getItemOfHost('cgiArgs')
-        args = re.split(r'\|', args)
-        for ii in xrange(len(args)):
-            if args[ii] == '${file}':
-                args[ii] = filename
-        prog = self.getItemOfHost('cgiProgram')
-        if not os.path.exists(prog):
-            content = self.errorMessage('cgi program not found: ' + prog)
-        else:
-            args.insert(0, prog)
-            
-            process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            output = process.communicate()
-            content = output[0]
-            err = output[1]
-            if self._debug and err != None and len(err) > 0:
-                say('Error(s) found')
-                err = str(err)
-                say(err[0:160])
-                ix = content.find('</body>')
-                if ix < 0:
-                    content = self.errorMessage(
-                        "cgi program %s find errors:\n %s" % (prog, str(err)))
-                else:
-                    content = (content[0:ix] + "<pre>CGI-ERRORS:\n"
-                        + err + "\n</pre>\n" + content[ix+7:])
-                    
-                
-        if content.find('Status:') != 0:
-            server.send_response(200)
-            if content.find('Content-type: ') < 0:
-                say("Content type not found. Generating...")
-                mimeType = 'text/html'
-                server.send_header('Content-type', mimeType)
-            server.end_headers()
-            server.wfile.write(content)
-            say('Content: ' + content[0:80] + '...')
-        else:
-            lines = content.split("\n")
-            cols = lines[0].split(" ")
-            status = int(cols[1])
-            server.send_response(status)
-            for ii in xrange(len(lines)):
-                if ii > 0:
-                    line = lines[ii].rstrip()
-                    index = line.find(': ')
-                    if index > 0:
-                        say(line)
-                        server.send_header(line[0:index], line[index+1:])
-            server.end_headers()
-            
+
     
 class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
     '''Implements a web server.
@@ -492,30 +616,7 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
 </html>
 '''
         BaseHTTPServer.BaseHTTPRequestHandler.send_error(self, code, message)
-        
-    def prepareWSGI(self, config, method):
-        '''Does common things for calling WSGI.
-        @param config:    configuration data
-        @param method:    get or post
-        '''
-        documentRoot = config.getItemOfHost('documentRoot')
-        if documentRoot not in sys.path:
-            sys.path = [documentRoot] + sys.path
-        environment = {}
-        config.buildMeta(method, self, environment)
-        # e.g. "GET /home HTTP/1.1"
-        pathInfo = re.split(' ', self.raw_requestline)[1]
-        script = config.getItemOfHost('documentRoot') + '/wsgi.py'
-        environment['REQUEST_METHOD'] = method
-        environment['SCRIPT_FILENAME'] = script
-        ix = pathInfo.find('?')
-        environment['QUERY_STRING'] = '' if ix < 0 else pathInfo[ix+1:] 
-        environment['REQUEST_URI'] = pathInfo
-        environment['SCRIPT_NAME'] = "/wsgi.py"
-        environment['PATH_INFO'] = pathInfo
-        self._wsgiEnvironment = environment
-        
-     
+             
     def startResponse(self, status, responseHeaders):
         '''Handler of the header. Is part of the WSGI.
         @param status: the HTTP status of the response, e.g. '200 OK'
@@ -542,35 +643,6 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
             self.wfile.write(handle.read())
             handle.close()
 
-    def handleStatics(self, config):
-        '''Handles request of static content if the request is static.
-        @param config:    configuration data
-        @return:     True: request has been static and is handled.
-                     False: otherwise
-        '''
-        rc = False
-        if self.path.startswith('/static/') or self.path == "/favicon.ico":
-            prefix = config.getItemOfHost('wsgiStaticPagePrefix', "")
-            filename = config.getItemOfHost('documentRoot') + prefix + self.path
-            mimeType = config.getMimeType(filename)
-            self.sendFile(filename, mimeType)
-            rc = True
-        return rc
-        
-    def runWSGI(self, config, module):
-        '''Starts the application using the WebServerGatewayInterface.
-        @param config: the configuration info for the application subsystem
-        @param module: the module containing the WSGI definitions.<br>
-                        May be a path like main.wsgi. Will be imported
-        @param method: 'get' or 'post'
-        @return:        the answer of the WSGI application: WsgiResponse...
-        '''
-        module = self.getModule(config, module)
-        application = module.application
-        
-        response = application.__call__(self._wsgiEnvironment, self.startResponse)
-        return response
-
     def handleContent(self, response):
         '''Handles the content of a HttpResponse.
         @param response:    a HttpResponse (or similar) instance
@@ -594,143 +666,6 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         else:
             self.end_headers()
             
-         
-    def handleWSGI(self, method, config):
-        '''Handles a WSGI application.
-        @param method: 'get' or 'post'
-        @param config: configuration info
-        '''
-        if not self.handleStatics(config):
-            self.prepareWSGI(config, method)
-            response = self.runWSGI(config, "wsgi")
-            self.handleContent(response)
-    
-    def importModule(self, config, key):
-        '''Calls a module given by an entry of the config.
-        @param config:    the configuration data
-        @param key:       the name of the entry in the config
-        @return:          None: module not found
-                          otherwise: the loaded module
-        '''
-        module = config.getItemOfHost(key)
-        if module == None:
-            config.errorMessage('{:s} not found in {:}'.format(key,
-                config.getName()))
-        else:
-            module = self.getModule(config, module) 
-        return module
-
-    def handleDjango(self, method, config):
-        '''Handles a Python Django application.
-        @param method: 'get' or 'post'
-        @param config: configuration info
-        '''
-        if not self.handleStatics(config):
-            self.prepareWSGI(config, method)
-            name = config.getItemOfHost("djangoRoot")
-            response = self.runWSGI(config, name)
-            self.handleContent(response)
-
-    def getModule(self, config, name):
-        '''Gets a module by name.
-        If not loaded it will be loaded.
-        @param config: the configuration info for the application subsystem
-        @param name:    the name of the module
-        @return:        the module
-        '''
-        config.extendPythonPath()
-        if name not in sys.modules:
-            log('importing ' + name)
-            __import__(name)
-        module = sys.modules[name]
-        return module
-
-    def reloadModule(self, name, mandatoryMember):
-        '''Reloads a module if it is from the wrong path.
-        @param name:              Name of the module
-        @param mandatoryMember:   if this member does not exist 
-                                  the module will be reloaded
-        '''
-        if name in sys.modules:
-            module = sys.modules[name]
-            if not mandatoryMember in module.__dict__:
-                # unload:
-                del sys.modules[name]
-        # load or load again:
-        if name not in sys.modules:
-            log('importing ' + name)
-            try:
-                importlib.import_module(name)
-            except ImportError:
-                paths = sys.path
-                logger.warning("module {:s} not found in {:s}\n{:s}".format(name, " ".join(paths), traceback.format_exc()))
-                raise
-            module = sys.modules[name]
-        
-    def unloadPath(self, prefix):
-        '''Removes all paths from the python path with a given prefix.
-        @param path:    path to remove
-        '''
-        for ix in xrange(len(sys.path) -1, 1, -1):
-            name = sys.path[ix]
-            if name.startswith(prefix):
-                say("unloading " + name)
-                del sys.path[ix]
-        pass
-    
-    def unloadDjango(self):
-        '''Removes all Django paths from the python path.
-        '''
-        self.unloadPath("/usr/lib/python2.7/dist-packages") 
-           
-    def handleDjinn(self, method, config):
-        '''Handles a Djinn application. 
-        Djinn is a replacement of Django.
-        @param method: 'get' or 'post'
-        @param config: configuration info
-        '''
-        if not self.handleStatics(config):  
-            logger.debug("sys.log:\n" + "\n".join(sys.path))  
-            found = False   
-            ix = len(sys.path)
-            while ix > 0:
-                ix -= 1
-                path = sys.path[ix]
-                if path.find("pywwetha") >= 0:
-                    found = True
-                    if path.endswith("/pywwetha/source"):
-                        path = path[0:-7]
-                        sys.path[ix] = path
-                        break
-            if not found:
-                sys.path.insert(0, "/usr/share/pywwetha")
-            item = config.getItemOfHost("documentRoot")
-            if item not in sys.path:
-                logger.debug("python path has been extended: " + item)
-                sys.path.insert(0, item)
-            self.unloadDjango()
-            self.reloadModule("djinn.django.conf.urls", "djinnMarker")
-            self.reloadModule("djinn.django.http", "djinnMarker")
-            djinnBase = config.getItemOfHost("djinnBase", "djinn")
-            urlModule = config.getItemOfHost("djinnUrls")
-            os.environ["URL_MODULE"] = urlModule
-            os.environ["DJINN_BASE"] = djinnBase
-            module = self.importModule(config, "djinnUrls")
-            if module != None:
-                self.prepareWSGI(config, method)
-                patterns = module.getPatterns()
-                module = self.getModule(config, djinnBase + ".wsgihandler")
-                module.urlPatterns = patterns
-                module = self.getModule(config, djinnBase + ".application")
-                application = module.application
-                response = application.__call__(self._wsgiEnvironment, self.startResponse)
-                if response == None:
-                    self.send_error(404, "Address not found: {:s}"
-                        .format(self.path))
-                else:
-                    self.handleContent(response)
-        pass
-
         
     def do_GET(self):
         '''Handles a GET request.
@@ -743,23 +678,27 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         '''
         #env = os.environ
         global config
-        config.setVirtualHost(self.headers.dict['host'])
+        host = self.headers.dict['host']
+        currentHost = config.getCurrentHost(host)
         if self.path == '/':
-            self.path = '/' + config.getItemOfHost('index', "home")
+            self.path = '/' + currentHost.getItem('index', "home")
         say(self.raw_requestline[0:-1])
         try:
-            if config.isDjango():
-                self.handleDjango(method, config)
-            elif config.isDjinn():
-                self.handleDjinn(method, config)
-            elif config.isWSGI():
-                self.handleWSGI(method, config)
-            elif config.isCgi(self.path):
-                config.runCgi(method, self)
+            if currentHost.isDjango():
+                currentHost.handleDjango(method, self)
+            elif currentHost.isDjinn():
+                currentHost.handleDjinn(method, self)
+            elif currentHost.isWSGI():
+                currentHost.handleWSGI(method, self)
+            elif currentHost.isCgi(self.path):
+                currentHost.runCgi(method, self)
             else:
                 filename = config.getItemOfHost('documentRoot') + self.path
-                mimeType = config.getMimeType(filename)
-                self.sendFile(filename, mimeType)
+                if not os.path.exists(filename):
+                    log("file not found: " + filename)
+                else:
+                    mimeType = config.getMimeType(filename)
+                    self.sendFile(filename, mimeType)
                 
         except IOError:
             msg = traceback.format_exc()
