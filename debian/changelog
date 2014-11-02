@@ -1,3 +1,10 @@
+pywwetha (2014.11.02) unstable; urgency=medium
+
+  * PYTHONPATH error: source folder djinn moved into folder source
+  * closes #1722
+
+ -- J. Hamatoma <hama@siduction.net>  Sun, 02 Nov 2014 15:48:11 +0100
+
 pywwetha (2014.10.22) unstable; urgency=medium
 
   * application will be loaded once only

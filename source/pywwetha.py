@@ -14,7 +14,7 @@ Created on 28.10.2011
 '''
 
 import os, sys, re, subprocess, BaseHTTPServer, glob, pwd, grp
-import logging, time, importlib
+import logging, time
 import traceback
 import djinn.wsgihandler
 
