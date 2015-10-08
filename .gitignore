@@ -2,13 +2,11 @@ etc/pywwetha/sidu-installer.conf
 .project
 .pydevproject
 .settings
-debian/files
-debian/pywwetha.debhelper.log
-debian/pywwetha.postinst.debhelper
-debian/pywwetha.postrm.debhelper
-debian/pywwetha.prerm.debhelper
-debian/pywwetha.substvars
-debian/pywwetha/
 *.pyc
 *~
 
+/debian/files
+/debian/*.log
+/debian/*.debhelper
+/debian/*.substvars
+/debian/pywwetha/

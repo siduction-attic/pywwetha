@@ -14,8 +14,7 @@ def dumpObj(obj):
     @return:     a string describing the object
     '''
     return repr(obj)
-                
- 
+
 def decodeUrl(url):
     '''Decodes the special characters in an URL into normal string.
     Special chars are %hh where hh is a 2 digit hexadecimal number.
@@ -37,13 +36,11 @@ def decodeUrl(url):
             last = ix + 3
     return rc
 
-
 class WSGIHandler(object):
     '''
-    Implements the a simple replacement of Django which implements the 
+    Implements the a simple replacement of Django which implements the
     Web Server Gateway Interface (WSGI)
     '''
-
 
     def __init__(self, urlPatterns = None):
         '''Constructor.
@@ -58,7 +55,7 @@ class WSGIHandler(object):
         self._blockSize = 0x10000
         self._environ = None
         self._request = None
-        
+
     def dumpUrl(self, urls):
         '''Dumps the url list.
         @return: a string describing the urls
@@ -67,7 +64,7 @@ class WSGIHandler(object):
         for item in urls:
             rc += "{:s}: {:s}\n".format(item._regExpr.pattern, item._name)
         return rc
-    
+
     def findUrl(self, url):
         '''Returns the first matching UrlInfo object.
         @param url    the url to search
@@ -84,13 +81,13 @@ class WSGIHandler(object):
         if rc == None:
             raise Exception("URL not found: " + url + " urls" + self.dumpUrl(self._urlPatterns))
         return rc
-           
+
     def putCookies(self, cookies):
         '''Write the cookies to the client.
         @param cookies:    a dictionary with the cookies
         '''
         pass
-    
+
     def writeContent(self, content):
         '''Writes the content of the current page to the client.
         @param content:     the page content (normally HTML)
@@ -122,7 +119,7 @@ class WSGIHandler(object):
         else:
             rc = "application/octet-stream"
         return rc
-    
+
     def handleStaticFiles(self, url, documentRoot, startResponse):
         '''Handles a static file.
         @param url:            the url of the static file, e.g. "/static/std.css"
@@ -132,7 +129,7 @@ class WSGIHandler(object):
         '''
         fn = documentRoot + url
         if not os.path.exists(fn):
-            # CONTENT_LENGTH will be added by the caller! 
+            # CONTENT_LENGTH will be added by the caller!
             headers = [("Content-Type","text/plain")]
             answer = "file not found: " + url + "\n"
             startResponse.__call__(404, headers)
@@ -152,7 +149,7 @@ class WSGIHandler(object):
             headers = [("Content-Type", mime)]
             startResponse.__call__(200, headers)
         return rc
-    
+
     def handle(self, application, documentRoot, startResponse):
         '''Handles a HTTP request.
         @param application:    the name of the application (is the virtual host)
@@ -178,7 +175,7 @@ class WSGIHandler(object):
                 rc = handler.__call__(self._request)
                 # rc is a HttpResponse or a HttpResponsePermanentRedirect
                 if isinstance(rc, HttpResponse):
-                    # CONTENT_LENGTH will be added by the caller! 
+                    # CONTENT_LENGTH will be added by the caller!
                     self.content = rc.content
                     header = ("Content-Type", "text/html")
                     headers.append(header)
@@ -187,7 +184,7 @@ class WSGIHandler(object):
                     headers.append(header)
                 startResponse.__call__(rc.status, headers)
         return rc
-            
+
     def __call__(self, environ, startResponse):
         '''the main method of the WSGI.
         @param environ:        the parameters as a dictionary
@@ -195,15 +192,15 @@ class WSGIHandler(object):
                                def startResponse(status, headers)
                                e.g. startResponse("200 OK", [("LEN", "20")]
         '''
-        
+
         application = environ["HTTP_HOST"]
         docRoot = environ["DOCUMENT_ROOT"]
         self._environ = environ
         self._request = WSGIRequest(environ)
-        
+
         rc = self.handle(application, docRoot, startResponse)
         return rc
-        
+
 class WSGIRequest:
     '''Implements the request instance expected from WSGI applications.
     '''
@@ -234,7 +231,7 @@ class WSGIRequest:
                 name = decodeUrl(name)
                 value = decodeUrl(value)
                 self.GET[name] = value
-            
+
     def buildCookies(self, environ):
         '''Fills the dictionary COOKIES.
         @param httpCookies: the http-url of the cookies
@@ -242,5 +239,3 @@ class WSGIRequest:
         self.COOKIES = {}
         if "HTTP_COOKIE" in environ:
             queryString = environ["HTTP_COOKIE"]
-        
-            

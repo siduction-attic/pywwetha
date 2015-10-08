@@ -2,12 +2,12 @@
 '''
 pywwetha is a minimal web server.
 
-Name: 
-* piwwetha is a native american tribe. 
+Name:
+* piwwetha is a native american tribe.
 * It is written in python.
-* It makes similar things like the apache does. 
+* It makes similar things like the apache does.
 * pywwetha is not known by some search engines (at pywwetha's birth).
-  
+
 Created on 28.10.2011
 
 @author: Hamatoma
@@ -18,7 +18,7 @@ import logging, time
 import traceback
 import djinn.wsgihandler
 
-VERSION = '2014.10.22'
+VERSION = '2015.10.08'
 VERSION_EXTENDED = VERSION
 
 logger = logging.getLogger("pywwetha")
@@ -26,24 +26,24 @@ logger = logging.getLogger("pywwetha")
 def say(msg):
     '''Prints a message if allowed.
     @param msg: the message to print
-    ''' 
+    '''
     global config
     if config != None and config._verbose:
         sys.stdout.write(msg + '\n')
     log(msg)
-        
+
 def sayError(msg):
     '''Prints an error message if possible.
     @param msg: the message to print
-    ''' 
+    '''
     global config
     if config != None and config._verbose:
         sys.stdout.write("+++ " + msg + '\n')
     logger.error(msg)
-    
+
 def log(msg):
     logger.info(msg)
-        
+
 def errorMessage(self, msg):
     '''Builds a html page with an error message.
     @param msg    error message
@@ -58,14 +58,14 @@ def errorMessage(self, msg):
 </html>
         ''' % msg
     return rc
-    
+
 
 class Host:
     '''Holds the data of a virtual host
     '''
     def __init__(self, name, config):
         '''Constructor.
-        @param name: the name of the virtual host 
+        @param name: the name of the virtual host
         '''
         self._name = name
         self._port = 80
@@ -73,7 +73,7 @@ class Host:
         self._urlMatcher = None
         self._config = config
         self._application = None
- 
+
     def getItem(self, name, defaultValue = None):
         '''Returns a property of the host.
         @param name:        name of the property
@@ -89,19 +89,19 @@ class Host:
         @param name: the resource name
         @return: True: the resource is a cgi script. False: otherwise
         '''
-        pattern = '\.(' + self.getItem('cgiExt') + ')' 
+        pattern = '\.(' + self.getItem('cgiExt') + ')'
         matcher = re.search(pattern, name)
         rc = matcher != None
         return rc
- 
+
     def isDjango(self):
         rc = self.getItem('cgiProgram') == 'django'
         return rc
-    
+
     def isDjinn(self):
         rc = self.getItem('cgiProgram') == 'djinn'
         return rc
-    
+
     def isWSGI(self):
         rc = self.getItem('cgiProgram') == 'WSGI'
         return rc
@@ -120,7 +120,7 @@ class Host:
                 rc = webServer.headers.dict[key1]
                 break
         return rc
-    
+
     def buildMeta(self, method, webServer, environment):
         '''Builds the meta info of the CGI / WSDI program.
         @param environment: the dictionary to fill
@@ -147,7 +147,7 @@ class Host:
                 flags = '*'
             environment['TRACE_FLAGS'] = flags
             say('TraceFlags: ' + flags)
-            
+
         pathInfo = environment['PATH_INFO'] if 'PATH_INFO' in environment else ""
         if pathInfo == None:
             pathInfo = ""
@@ -169,23 +169,23 @@ class Host:
         @param environment: a dictionary containing the values to change
         '''
         matcher = self._urlMatcher.match(path)
-        docRoot = self.getItem('documentRoot') 
+        docRoot = self.getItem('documentRoot')
         if matcher == None:
             environment['REQUEST_METHOD'] = method
             environment['SCRIPT_FILENAME'] = docRoot + path
-            environment['QUERY_STRING'] = '' 
+            environment['QUERY_STRING'] = ''
             environment['REQUEST_URI'] = path
             environment['SCRIPT_NAME'] = script
             environment['PATH_INFO'] = path
         else:
             environment['SCRIPT_FILENAME'] = docRoot + matcher.group(1)
             query = matcher.group(6)
-            environment['QUERY_STRING'] = query 
+            environment['QUERY_STRING'] = query
             environment['REQUEST_URI'] = path
             environment['SCRIPT_NAME'] = matcher.group(1)
             pathInfo = matcher.group(4)
             environment['PATH_INFO'] = pathInfo
-            
+
     def extendPythonPath(self):
         '''Extends the search path for modules from the configuration.
         '''
@@ -204,7 +204,7 @@ class Host:
         item = self.getItem('documentRoot')
         if item not in sys.path:
             sys.path.insert(0, item)
- 
+
     def handleStatics(self, webServer):
         '''Handles request of static content if the request is static.
         @return:     True: request has been static and is handled.
@@ -221,7 +221,7 @@ class Host:
                 webServer.sendFile(filename, mimeType)
             rc = True
         return rc
-        
+
     def runCgi(self, method, webServer):
         '''Runs the cgi program and writes the result.
         @param method: 'get' or 'post'
@@ -232,9 +232,9 @@ class Host:
         self.splitUrl(method, webServer.path, webServer.path, config._server)
         for key, value in config._server.iteritems():
             if value == None:
-                value = '' 
+                value = ''
             os.environ[key] = str(value)
-            if config._verbose: 
+            if config._verbose:
                 log(key + "=" + str(value))
         filename = config._server['SCRIPT_FILENAME']
         say('Script: ' + filename)
@@ -248,7 +248,7 @@ class Host:
             content = errorMessage('cgi program not found: ' + prog)
         else:
             args.insert(0, prog)
-            
+
             process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             output = process.communicate()
             content = output[0]
@@ -299,7 +299,7 @@ class Host:
             errorMessage('{:s} not found in {:}'.format(key,
                 self._name))
         else:
-            module = self.getModule(module) 
+            module = self.getModule(module)
         return module
 
     def getModule(self, name):
@@ -325,12 +325,12 @@ class Host:
         '''
         module = self.getModule(module)
         application = module.application
-        
-        response = application.__call__(webServer._wsgiEnvironment, 
+
+        response = application.__call__(webServer._wsgiEnvironment,
                 webServer._startResponse)
         return response
 
-         
+
     def handleWSGI(self, method, webServer):
         '''Handles a WSGI application.
         @param method: 'get' or 'post'
@@ -340,7 +340,7 @@ class Host:
             self.prepareWSGI(method)
             response = self.runWSGI(config, "wsgi", webServer)
             webServer.handleContent(response)
-    
+
     def handleDjango(self, method, webServer):
         '''Handles a Python Django application.
         @param method: 'get' or 'post'
@@ -351,7 +351,7 @@ class Host:
             name = config.getItemOfHost("djangoRoot")
             response = self.runWSGI(config, name)
             self.handleContent(response)
-        
+
     def prepareWSGI(self, method, webServer):
         '''Does common things for calling WSGI.
         @param config:    configuration data
@@ -365,19 +365,19 @@ class Host:
         environment['REQUEST_METHOD'] = method
         environment['SCRIPT_FILENAME'] = script
         ix = pathInfo.find('?')
-        environment['QUERY_STRING'] = '' if ix < 0 else pathInfo[ix+1:] 
+        environment['QUERY_STRING'] = '' if ix < 0 else pathInfo[ix+1:]
         environment['REQUEST_URI'] = pathInfo
         environment['SCRIPT_NAME'] = "/wsgi.py"
         environment['PATH_INFO'] = pathInfo
         webServer._wsgiEnvironment = environment
-        
+
     def handleDjinn(self, method, webServer):
-        '''Handles a Djinn application. 
+        '''Handles a Djinn application.
         Djinn is a replacement of Django.
         @param method: 'get' or 'post'
         @param webServer: the web server instance
         '''
-        if not self.handleStatics(webServer):  
+        if not self.handleStatics(webServer):
             if self._application != None:
                 self.prepareWSGI(method, webServer)
                 response = self._application.__call__(webServer._wsgiEnvironment, webServer.startResponse)
@@ -387,7 +387,7 @@ class Host:
                 else:
                     webServer.handleContent(response)
         pass
-        
+
 class Config:
     '''Manages the configuration data
     '''
@@ -427,11 +427,11 @@ class Config:
         self._server = dict()
         self._environ = os.environ
         os.environ.clear()
-     
+
     def getName(self, currentHost):
         rc = currentHost._name if currentHost != None else 'localhost'
         return rc
-  
+
     def postRead(self):
         '''Does initialization code after reading the configuration.
         '''
@@ -453,7 +453,7 @@ class Config:
                     host._application = djinn.wsgihandler.WSGIHandler(
                             module.getPatterns())
 
-   
+
     def readConfig(self, name):
         '''Reads the configuration file.
         @param name: the name of the configuration file
@@ -483,13 +483,13 @@ class Config:
                     else:
                         host = Host(vhost, self)
                         self._hosts[vhost] = host
-                        
+
                     if itemMatcher.match(var) != None:
                         host._items[var] = value
                         if var == 'documentRoot' and not os.path.isdir(value):
                             sayError('%s-%d: %s is not a directory' % (name, lineNo, value))
                         elif var == 'cgiProgram' and not (
-                                value == "django" or value == "WSGI" 
+                                value == "django" or value == "WSGI"
                                 or value == "djinn"
                                 or os.path.isfile(value)):
                             sayError('%s-%d: CGI not found: %s' % (name, lineNo, value))
@@ -546,25 +546,25 @@ class Config:
                                 if level < 0 or level % 10 != 0 or level > logging.CRITICAL:
                                     sayError("%s-%d: wrong level: {:d}. Use 0, 10, 20..50."
                                              .format(name, lineNo, level))
-                                else:    
+                                else:
                                     self._logLevel = int( level)
-                                
+
                         else:
                             sayError("%s-%d: unknown var: %s" % (name, lineNo, var))
             handle.close()
-               
+
     def getMimeType(self, name):
         '''Finds the mime type.
         @param name: the resource name
         @return: None: Unknown resource. Otherwise: the mime type of the resource
-        ''' 
+        '''
         matcher = self._fileMatcher.search(name)
         if matcher:
             rc = self._mimeTypes[matcher.group(1)]
         else:
             rc = None
         return rc
-    
+
     def splitUrlRaw(self, method, path, script, environment):
         '''Splits the URL into its parts.
         The parts will be stored in <code>environment</code>.
@@ -574,11 +574,11 @@ class Config:
         '''
         environment['REQUEST_METHOD'] = method
         environment['SCRIPT_FILENAME'] = script
-        environment['QUERY_STRING'] = '' 
+        environment['QUERY_STRING'] = ''
         environment['REQUEST_URI'] = path
         environment['SCRIPT_NAME'] = "/" + os.path.basename(script)
         environment['PATH_INFO'] = path
-        
+
     def getCurrentHost(self, host):
         '''Sets the current virtual host.
         @param host: the host expression, e.g. abc:8086
@@ -595,11 +595,11 @@ class Config:
                 host, hostname, port))
         return rc
 
-    
+
 class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
     '''Implements a web server.
     '''
- 
+
     def send_error(self, code, message=None):
         self.error_message_format = '''<html>
 <head>
@@ -616,7 +616,7 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
 </html>
 '''
         BaseHTTPServer.BaseHTTPRequestHandler.send_error(self, code, message)
-             
+
     def startResponse(self, status, responseHeaders):
         '''Handler of the header. Is part of the WSGI.
         @param status: the HTTP status of the response, e.g. '200 OK'
@@ -627,7 +627,7 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
         self.send_response(statusNo)
         for pair in responseHeaders:
             self.send_header(pair[0], pair[1])
-          
+
     def sendFile(self, filename, mimeType):
         '''Sends a file to the browser:
         '''
@@ -662,16 +662,16 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
             # @ToDo: writing cookies
             self.end_headers()
             for line in response:
-                self.wfile.write(line)            
+                self.wfile.write(line)
         else:
             self.end_headers()
-            
-        
+
+
     def do_GET(self):
         '''Handles a GET request.
         '''
         self.do_it('get')
-        
+
     def do_it(self, method):
         '''Handles a request (GET or POST).
         @param method: 'get' or 'post'
@@ -699,7 +699,7 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
                 else:
                     mimeType = config.getMimeType(filename)
                     self.sendFile(filename, mimeType)
-                
+
         except IOError:
             msg = traceback.format_exc()
             self.send_error(404, "File Not Found: {:s}\n{:s}".format(self.path, msg))
@@ -708,7 +708,7 @@ class WebServer(BaseHTTPServer.BaseHTTPRequestHandler):
             content = "Server error in {:s}\n{:s}".format(
                 self.path, traceback.format_exc())
             self.send_error(500, content)
-     
+
 
     def do_POST(self):
         '''Handles a POST request.
@@ -722,7 +722,7 @@ A simple webserver for static html and CGI.
 
 Usage: pywwetha.py <opts>
 <opt>:
---verbose    
+--verbose
     Issues some messages
 --debug
     Insert php-cgi warnings and errors into the html pages
@@ -740,7 +740,7 @@ Usage: pywwetha.py <opts>
     if msg != None:
         sayError(msg)
     sys.exit(1)
-    
+
 def main():
     '''Do the real things.
     '''
@@ -788,7 +788,7 @@ def main():
     if doCheck:
         # read again with error reporting:
         config = Config()
-        
+
     dateStr = time.ctime(time.time())
     say("Starting pywwetha with log level {:s} {:s}".format(
         logging.getLevelName(logLevel), dateStr))
