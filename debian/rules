@@ -6,5 +6,5 @@
 	dh $@ --with systemd
 
 override_dh_clean:
-	find . -name \*.pyc --delete
+	find . -name \*.pyc -delete
 	dh_clean
