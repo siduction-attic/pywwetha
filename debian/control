@@ -4,7 +4,8 @@ Uploaders: Alf Gaida <agaida@siduction.org>
 Section: httpd
 Priority: optional
 Build-Depends: debhelper (>= 9),
-               dh-systemd
+               dh-systemd,
+               dh-python
 Standards-Version: 3.9.6
 Vcs-Browser: http://git.siduction.org/?p=packages/siduction-repository/pywwetha.git;a=summary
 Vcs-Git: git://git.siduction.org/packages/siduction-repository/pywwetha
@@ -14,7 +15,6 @@ Package: pywwetha
 Architecture: all
 Depends: ${misc:Depends},
          python,
-         python-support,
          sudo
 Pre-Depends: sidu-base (>= 2014.04.11)
 Description: simple webserver for static html, CGI and WSGI.

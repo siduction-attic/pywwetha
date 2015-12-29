@@ -1,3 +1,9 @@
+pywwetha (2015.12.29) unstable; urgency=medium
+
+  * removed python-support as dependency (no longer in sid)
+
+ -- Alf Gaida <agaida@siduction.org>  Tue, 29 Dec 2015 21:34:24 +0100
+
 pywwetha (2015.10.08) unstable; urgency=medium
 
   * fix pre-dependency
